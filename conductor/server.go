@@ -55,7 +55,7 @@ func ServiceRequests(bindAddr *net.IPAddr, hostname *string, serverCert tls.Cert
 	/* convert the bindAddress to a string suitable for the Listen call */
 	var laddr string
 	if (bindAddr == nil) {
-		laddr = fmt.Sprintf("[::]:%d", DefaultMasterPort)
+		laddr = fmt.Sprintf(":%d", DefaultMasterPort)
 	} else {
 		laddr = fmt.Sprintf("%s:%d", bindAddr.String(), DefaultMasterPort)
 	}
@@ -73,12 +73,6 @@ func ServiceRequests(bindAddr *net.IPAddr, hostname *string, serverCert tls.Cert
 
 func handleConnection(c net.Conn) {
 	// escalte to tls Conn if we can.
-	tlsc, ok := c.(tls.Conn)
-	if ok {
-		/* we're TLS.  Force handshake and verify the client */
-		tlsc.Handshake()
-	}
 	/*FIXME: implement client registraiton, sender + receive loop */
-	
 	c.Close()
 }
