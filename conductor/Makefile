@@ -6,6 +6,8 @@ TARG=conductor
 GOFILES=\
 	conductor.go\
 	dispatch.go\
+	server.go\
+
 
 
 

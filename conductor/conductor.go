@@ -8,43 +8,52 @@ import (
 	"fmt"
 	"net"
 	"flag"
-	tls	"crypto/tls"
+	"crypto/tls"
 )
 
-
-var rootCAFilename *string = flag.String("root-ca", "root-ca.pem", "File containing the CA Certificate")
-var myCertFilename *string = flag.String("cert", "cert.pem", "File containing the Server Key and Certificate pair")
+var x509CertFilename *string = flag.String("cert", "conductor_crt.pem", "File containing the Certificate")
+var x509PrivateKeyFilename *string = flag.String("key", "conductor_key.pem", "File containing the Private Key")
 var bindAddress    *string = flag.String("bind-addr", "", "Bind Address")
+
+func Warn(format string, args ...interface{}) {
+	fmt.Fprint(os.Stderr, "WARN: ")
+	fmt.Fprintf(os.Stderr, format, args...)
+	fmt.Fprintln(os.Stderr)
+}
+
+func Fail(mesg string, args ...interface {}) {
+	fmt.Fprint(os.Stderr, "ERR: ")
+	fmt.Fprintf(os.Stderr, mesg, args...);
+	fmt.Fprintln(os.Stderr)
+	os.Exit(1)
+}	
+
+func MightFail(mesg string, err os.Error) {
+	if (nil != err) {
+		Fail("%s: %s", mesg, err.String())
+	}
+}
 
 func main() {
 	var sockConfig tls.Config
 
 	flag.Parse()
 
-	var shortHostname string
-
-	if ("" == *bindAddress) {
+	var bindIp *net.IPAddr = nil
+	if (*bindAddress != "") {
 		var err os.Error
-		shortHostname, err = os.Hostname()
+		bindIp, err = net.ResolveIPAddr(*bindAddress)
 		if (err != nil) {
-			fmt.Printf("Failed to get hostname: %s\n", err);
-			os.Exit(1);
+			Warn("Ignoring bind address.  Couldn't resolve \"%s\": %s", bindAddress, err)
+		} else {
+			bindIp = nil
 		}
-	} else {
-		shortHostname = *bindAddress
 	}
-	addr, err := net.LookupHost(shortHostname) 
-	if (err != nil) {
-		fmt.Printf("Failed to get address for hostname: %s\n", err);
-		os.Exit(1);
-	}
-	hostnames, err := net.LookupAddr(addr[0])
-	if (err != nil) {
-		fmt.Printf("Failed to get full hostname for address: %s\n", err);
-		os.Exit(1);
-	}
-
-	sockConfig.ServerName = hostnames[0]
+	certpair, err := tls.LoadX509KeyPair(*x509CertFilename, *x509PrivateKeyFilename)
+	MightFail("Couldn't load certificates", err)
+	SetupMasterSocket(bindIp, nil, certpair)
+	
+	sockConfig.ServerName = ProbeHostname()
 
 	InitDispatch()
 
