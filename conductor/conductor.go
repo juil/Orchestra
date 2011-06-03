@@ -51,15 +51,12 @@ func main() {
 	}
 	certpair, err := tls.LoadX509KeyPair(*x509CertFilename, *x509PrivateKeyFilename)
 	MightFail("Couldn't load certificates", err)
-	SetupMasterSocket(bindIp, nil, certpair)
 	
 	sockConfig.ServerName = ProbeHostname()
 
 	InitDispatch()
 
-	waitingT, _ := DispatchStatus()
+	StartHTTP()
 
-	fmt.Printf("Hostname: %s\n", sockConfig.ServerName)
-	fmt.Printf("Tasks Waiting: %d\n", waitingT)
-	fmt.Printf("Got Here OK\n")
+	ServiceRequests(bindIp, nil, certpair)
 }

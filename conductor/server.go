@@ -14,6 +14,7 @@ import (
 
 const (
 	DefaultMasterPort = 2258
+	DefaultHTTPPort = 2259
 )
 
 func ProbeHostname() (fqdn string) {
@@ -28,9 +29,7 @@ func ProbeHostname() (fqdn string) {
 	return hostnames[0]
 }
 
-
-
-func SetupMasterSocket(bindAddr *net.IPAddr, hostname *string, serverCert tls.Certificate) {
+func ServiceRequests(bindAddr *net.IPAddr, hostname *string, serverCert tls.Certificate) {
 	var sockConfig tls.Config
 
 	/* we have a bindAddr and validate it */
@@ -61,6 +60,25 @@ func SetupMasterSocket(bindAddr *net.IPAddr, hostname *string, serverCert tls.Ce
 		laddr = fmt.Sprintf("%s:%d", bindAddr.String(), DefaultMasterPort)
 	}
 	Warn("Binding to %s", laddr)
-	_, err := tls.Listen("tcp", laddr, &sockConfig)
+	listener, err := tls.Listen("tcp", laddr, &sockConfig)
 	MightFail("Couldn't bind TLS listener", err)
+
+	for {
+		c, err := listener.Accept()
+		MightFail("Couldn't accept TLS connection", err)
+		Warn("Connection received from %s", c.RemoteAddr().String())
+		go handleConnection(c)
+	}
+}
+
+func handleConnection(c net.Conn) {
+	// escalte to tls Conn if we can.
+	tlsc, ok := c.(tls.Conn)
+	if ok {
+		/* we're TLS.  Force handshake and verify the client */
+		tlsc.Handshake()
+	}
+	/*FIXME: implement client registraiton, sender + receive loop */
+	
+	c.Close()
 }
