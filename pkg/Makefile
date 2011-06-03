@@ -4,6 +4,7 @@ TARG=orchestra
 GOFILES=\
 	orchestra.pb.go\
 	queue.go\
+	marshal.go\
 
 
 include $(GOROOT)/src/Make.pkg

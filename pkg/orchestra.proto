@@ -63,13 +63,11 @@ message StatusResponse {
 	repeated JobResponse	responses = 3; // one for each target.
 }
 
+message IdentifyClient {
+	required string	hostname = 1;
+}
+
 service MasterProtocol {
 	rpc Queue (QueueRequest) returns (QueueResponse);
 	rpc Status (StatusRequest) returns (StatusResponse);
-}
-
-message StreamingMessage {
-	optional Acknowledgement	ack = 1;
-	optional JobRequest		job = 2;
-	optional JobResponse		resp = 3;
 }
