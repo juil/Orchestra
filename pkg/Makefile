@@ -3,7 +3,6 @@ include $(GOROOT)/src/Make.inc
 TARG=orchestra
 GOFILES=\
 	orchestra.pb.go\
-	queue.go\
 	marshal.go\
 
 
