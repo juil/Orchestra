@@ -29,7 +29,7 @@ All BE.
 
 struct {
        byte	type
-       int16	len
+       uint16	len
        byte	payload[len]
 }	
 

@@ -1,17 +1,18 @@
 package orchestra;
 
-message JobRequest {
+message JobParameter {
+	required string	key = 1;
+	required string	value = 2;
+}
+
+message TaskRequest {
 	required string jobname = 1;
-	optional int64	id = 2;
-	message JobParameter {
-		required string	key = 1;
-		required string	value = 2;
-	}
+	optional uint64	id = 2;
 	repeated JobParameter parameters = 3;
 }
 
 message Acknowledgement {
-	required int64	id = 1;
+	required uint64	id = 1;
 	enum AckType {
 		ACK_OK = 1;
 		ACK_DUPLICATE = 2; /* Job or Response for JobID already exists locally */
@@ -20,11 +21,9 @@ message Acknowledgement {
 	required AckType	response = 2 [default=ACK_OK];
 }
 
-message JobResponse {
-	required int64	id = 1;
-	required string	target = 2;
-	enum JobStatus {
-		JOB_UNCOLLECTED = 1;	// Master has the job, but it's not been collected.
+message TaskResponse {
+	required uint64	id = 1;
+	enum TaskStatus {
 		JOB_INPROGRESS = 2;	// Client has the job.
 		JOB_SUCCESS = 3;	// everything was OK, we don't care.
 		JOB_FAILED = 4;		// the job ran ok, but told us it blew up.
@@ -32,11 +31,12 @@ message JobResponse {
 		JOB_UNKNOWN = 6;	// What Job?
 		JOB_UNKNOWN_FAILURE = 7;// somethign went wrong, but we don't know what.
 	}
-	required JobStatus status = 3;
+	required TaskStatus status = 3;
+	repeated JobParameter response = 4;
 }
 
 message QueueRequest {
-	required JobRequest	job = 1;
+	required TaskRequest	job = 1;
 
 	enum TargetMode {
 		ONEOF = 1;
@@ -60,7 +60,7 @@ message StatusRequest {
 message StatusResponse {
 	required bool	success = 1 [default=true];
 	optional string	error   = 2;
-	repeated JobResponse	responses = 3; // one for each target.
+	repeated TaskResponse	responses = 3; // one for each target.
 }
 
 message IdentifyClient {

@@ -59,6 +59,10 @@ func (p *WirePkt) Decode() (obj interface{}, err os.Error) {
 		ic := new(IdentifyClient)
 		proto.Unmarshal(p.Payload[0:p.Length], ic)
 		return ic, nil
+	case TypeTaskRequest:
+		tr := new(TaskRequest)
+		proto.Unmarshal(p.Payload[0:p.Length], tr)
+		return tr, nil
 	}
 	return nil, ErrUnknownMessage
 }
