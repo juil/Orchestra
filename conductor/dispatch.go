@@ -1,12 +1,12 @@
-/* queue.go
+/* dispatch.go
 */
 
 package main;
 
 import (
-	"orchestra"
 	"sort"
 	"sync/atomic"
+	"container/list"
 )
 
 var lastId uint64 = 0
@@ -156,64 +156,61 @@ func InitDispatch() {
 }
 
 func masterDispatch() {
-	pq := orchestra.NewQueue()
-	tq := orchestra.NewQueue()
+	pq := list.New()
+	tq := list.New()
 
 	for {
 		select {
 		case player := <-playerIdle:
 			/* first, scan to see if we have anything for this player */
-			i := tq.Iter()
+			i := tq.Front()
 			for {
-				tif := i.Next();
-				if (nil == tif) {
+				i = i.Next()
+				if (nil == i) {
 					/* Out of items! */
 					/* Append this player to the waiting players queue */
-					pq.Append(player)
+					pq.PushBack(player)
 					break;
 				}
-				t,_ := tif.(JobTask)
+				t,_ := i.Value.(JobTask)
 				if t.IsTarget(player.name) {
 					/* Found a valid job. Send it to the player, and remove it from our pending 
 					 * list */
-					tq.Remove(t)
+					tq.Remove(i)
 					player.c <- t
 					break;
 				}
 			}
 		case task := <-rqTask:
 			/* first, scan to see if we have valid pending player for this task */
-			i := pq.Iter()
+			i := pq.Front()
 			for {
-				pif := i.Next();
-				if (nil == pif) {
+				i := i.Next();
+				if (nil == i) {
 					/* Out of players! */
 					/* Append this task to the waiting tasks queue */
-					tq.Append(task)
+					tq.PushBack(task)
 					break;
 				}
-				p,_ := pif.(waitingPlayer)
+				p,_ := i.Value.(waitingPlayer)
 				if task.IsTarget(p.name) {
 					/* Found it. */
-					pq.Remove(p)
+					pq.Remove(i)
 					p.c <- task
 					break;
 				}
 			}
 		case respChan := <-statusRequest:
 			response := new(QueueInformation)
-			response.waitingTasks = tq.Length()
-			pqLen := pq.Length()
+			response.waitingTasks = tq.Len()
+			pqLen := pq.Len()
 			response.idlePlayers = make([]string, pqLen)
 			
 			idx := 0
-			i := pq.Iter()
-			p := i.Next()
-			for p != nil {
-				player,_ := p.(waitingPlayer)
+			for i := pq.Front(); i != nil; i = i.Next() {
+				player,_ := i.Value.(waitingPlayer)
 				response.idlePlayers[idx] = player.name
 				idx++
-				p = i.Next()
 			}
 			respChan <- *response
 		}
