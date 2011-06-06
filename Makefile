@@ -2,15 +2,17 @@ include $(GOROOT)/src/Make.inc
 
 all: build
 
-DIRS=\
+PKGDIRS=\
 	pkg\
+
+DIRS=\
 	conductor\
 	player\
 
-clean.dirs: $(addsuffix .clean, $(DIRS))
+clean.dirs: $(addsuffix .clean, $(PKGDIRS)) $(addsuffix .clean, $(DIRS))
 install.dirs: $(addsuffix .install, $(DIRS))
-nuke.dirs: $(addsuffix .nuke, $(DIRS))
-build.dirs: $(addsuffix .build, $(DIRS))
+nuke.dirs: $(addsuffix .nuke, $(PKGDIRS)) $(addsuffix .nuke, $(DIRS))
+build.dirs: $(addsuffix .build, $(PKGDIRS)) $(addsuffix .build, $(DIRS))
 
 %.clean:
 	+$(MAKE) -C $* clean

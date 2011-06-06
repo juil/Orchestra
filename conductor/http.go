@@ -8,6 +8,7 @@ package main
 import (
 	"fmt"
 	"http"
+	"orchestra"
 )
 
 /* default ports are all in server.go */
@@ -31,7 +32,7 @@ func returnStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func httpServer() {
-	laddr := fmt.Sprintf(":%d", DefaultHTTPPort)
+	laddr := fmt.Sprintf(":%d", orchestra.DefaultHTTPPort)
 	http.HandleFunc("/", returnStatus)
 	http.ListenAndServe(laddr, nil)
 }

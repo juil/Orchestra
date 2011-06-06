@@ -2,6 +2,8 @@ include $(GOROOT)/src/Make.inc
 
 TARGDIR=/usr/local/sbin
 TARG=conductor
+GCIMPORTS=-I../pkg/_obj
+LDIMPORTS=-L../pkg/_obj
 
 GOFILES=\
 	conductor.go\
