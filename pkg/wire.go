@@ -8,7 +8,7 @@ package orchestra;
 import (
 	"os"
 	"net"
-
+	"fmt"
 )
 
 type WirePkt struct {
@@ -48,19 +48,43 @@ func (p *WirePkt) Send(c net.Conn) (n int, err os.Error) {
 	return n, nil
 }
 
+func (p *WirePkt) Dump() {
+	fmt.Printf("Packet Dump: Type %d, Len %d\n", p.Type, p.Length)
+	for i := 0; i < int(p.Length); i++ {
+		if i%16 == 0 {
+			fmt.Printf("%04x: ", i)
+		}
+		fmt.Printf("%02x ", p.Payload[i])
+		if i%16 == 15 {
+			fmt.Println()
+		}
+	}
+	fmt.Println()
+}
+
 func Receive(c net.Conn) (msg *WirePkt, err os.Error) {
 	msg = new(WirePkt)
 	preamble := make([]byte, 3)
 
 	n, err := c.Read(preamble)
-	if (n < 3) {
-		/* short read!  wtf! err? */
+	if err != nil {
 		return nil, err
+	}
+	if n < 3 {
+		/* short read!  wtf! err? */
+		return nil, ErrMalformedMessage
 	}
 	msg.Type = preamble[0]
 	msg.Length = (uint16(preamble[1]) << 8) | uint16(preamble[2])
 	msg.Payload = make([]byte, msg.Length)
 	n, err = c.Read(msg.Payload)
+	if err != nil {
+		return nil, err
+	}
+	if n < int(msg.Length) {
+		/* short read!  wtf! err? */
+		return nil, ErrMalformedMessage
+	}
 
 	/* Decode! */
 	return msg, nil

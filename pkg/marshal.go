@@ -18,14 +18,14 @@ func (p *WirePkt) Decode() (obj interface{}, err os.Error) {
 			return nil, ErrMalformedMessage;
 		}
 	case TypeIdentifyClient:
-		ic := new(ProtoIdentifyClient)
+		ic := new(IdentifyClient)
 		err := proto.Unmarshal(p.Payload[0:p.Length], ic)
 		if err != nil {
 			return nil, err
 		}
 		return ic, nil
 	case TypeTaskRequest:
-		tr := new(ProtoTaskRequest)
+		tr := new(TaskRequest)
 		err := proto.Unmarshal(p.Payload[0:p.Length], tr)
 		if err != nil {
 			return nil, err
@@ -44,9 +44,9 @@ func MakeNop() (p *WirePkt) {
 	return p
 }
 
-func MakeIdentifyClient(hostname string) (p *WirePkt) {
+func NewIdentifyClient(hostname string) (p *WirePkt) {
 	p = new(WirePkt)
-	s := new(ProtoIdentifyClient)
+	s := new(IdentifyClient)
 	s.Hostname = proto.String(hostname)
 	
 	var err os.Error

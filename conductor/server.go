@@ -10,7 +10,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	o	"orchestra"
-	"goprotobuf.googlecode.com/hg/proto"
 )
 
 
@@ -58,29 +57,30 @@ func ServiceRequests(bindAddr *net.IPAddr, hostname *string, serverCert tls.Cert
 
 func handleConnection(c net.Conn) {
 	var remoteHostname string = ""
-	// escalte to tls Conn if we can.
-	pkt, err := o.Receive(c)
-	if err != nil {
-		o.Warn("Client didn't complete introduction: %s", err)
-	} else {
-		o.Warn("Got Pkt.  Type=%d.  Len=%d", pkt.Type, pkt.Length)
-		if pkt.Type != o.TypeIdentifyClient {
-			o.Warn("Client didn't Identify self! (Got PktType %d)", pkt.Type)
-		} else {
-			upkt, err := pkt.Decode()
-			if err != nil {
-				o.Warn("Error unmarshalling Introduction: %s", err)
-			} else {
-				ic, _ := upkt.(o.ProtoIdentifyClient)
-				if (ic.Hostname == nil) {
-					o.Fail("Couldn't find hostname in Identity packet!")
-				} else {
-					remoteHostname = proto.GetString(ic.Hostname)
-				}
-			}
+
+	for {
+		pkt, err := o.Receive(c)
+		if err != nil {
+			o.Warn("Error receiving message: %s", err)
+			break
+		}
+		if remoteHostname == "" && pkt.Type != o.TypeIdentifyClient {
+			o.Warn("Client didn't Identify self - got type %d instead!", pkt.Type)
+			break
+		}
+		upkt, err := pkt.Decode()
+		if err != nil {
+			o.Warn("Error unmarshalling message: %s", err)
+		}
+		switch pkt.Type {
+		case o.TypeIdentifyClient:
+			ic, _ := upkt.(*o.IdentifyClient)
+			remoteHostname = *ic.Hostname
+			o.Warn("Client Identified Itself As \"%s\"", remoteHostname)
+		default:
+			o.Warn("Unhandled Pkt Type %d", pkt.Type)
 		}
 	}
-	o.Warn("Client Identified Itself As \"%s\"", remoteHostname)
-	/*FIXME: implement client registraiton, sender + receive loop */
+	/*FIXME: Sever the client from the clients list. */
 	c.Close()
 }

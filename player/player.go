@@ -49,12 +49,7 @@ func ProcessingLoop() {
 			go Reader(conn)
 
 			/* Introduce ourself */
-			hello := o.NewIdentifyClient()
-			hello.Hostname = *localHostname
-			
-			/* now, marshal and send */
-			p, err := o.Encode(hello)
-			o.MightFail("Couldn't Encode Hello Message", err)
+			p := o.NewIdentifyClient(*localHostname)			
 			p.Send(conn)
 
 			breakLoop := true
