@@ -10,6 +10,7 @@ GOFILES=\
 	dispatch.go\
 	server.go\
 	http.go\
+	registry.go\
 
 include $(GOROOT)/src/Make.cmd
 
