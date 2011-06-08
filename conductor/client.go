@@ -8,7 +8,6 @@ import (
 	o "orchestra"
 	"net"
 	"time"
-	"fmt"
 	"os"
 )
 
@@ -24,6 +23,7 @@ type ClientInfo struct {
 	PktOutQ		chan *o.WirePkt
 	PktInQ		chan *o.WirePkt
 	AbortQ		chan int
+	TaskQ		chan *JobTask
 	connection	net.Conn	
 }
 
@@ -67,15 +67,29 @@ func handleIdentify(client *ClientInfo, message interface{}) {
 	}
 }
 
+func handleReadyForTask(client *ClientInfo, message interface{}) {
+	o.Warn("Client %s: Asked for Job", client.Name())
+	PlayerWaitingForJob(client)
+}
+
+func handleIllegal(client *ClientInfo, message interface{}) {
+	o.Warn("Client %s: Sent Illegal Message")
+	client.Abort()
+}
+
 var dispatcher	= map[uint8] func(*ClientInfo,interface{}) {
 	o.TypeNop:		handleNop,
 	o.TypeIdentifyClient:	handleIdentify,
+	o.TypeReadyForTask:	handleReadyForTask,
+
+	/* C->P only messages, should never appear on the wire. */
+	o.TypeTaskRequest:	handleIllegal,
+
 }
 
 func clientLogic(client *ClientInfo) {
 	loop := true
 	for loop {
-		fmt.Println("CL:L")
 		o.Warn("CL:%s:Select", client.Name())
 		select {
 		case p := <-client.PktInQ:
@@ -112,6 +126,7 @@ func clientLogic(client *ClientInfo) {
 			}
 		case <-client.AbortQ:
 			o.Warn("Client %s connection writer on fire!", client.Name())
+			PlayerDied(client)
 			ClientDelete(client.Hostname)
 			loop = false
 

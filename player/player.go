@@ -53,10 +53,11 @@ func ProcessingLoop() {
 			err := time.Sleep(30 * 10e9)
 			o.MightFail("Couldn't Sleep",err)
 		} else {
+			var pendingTaskRequest = false
 			go Reader(conn)
 
 			/* Introduce ourself */
-			p := o.NewIdentifyClient(*localHostname)			
+			p := o.MakeIdentifyClient(*localHostname)
 			p.Send(conn)
 
 			loop := true
@@ -68,11 +69,19 @@ func ProcessingLoop() {
 					loop = false
 				case p := <-receivedMessage:
 					o.Warn("The Master spoke to me!")
-					p.Dump()
+					_ = p
 				case <-time.After(KeepaliveDelay):
-					o.Warn("Sending Nop")
-					p := o.MakeNop()
-					p.Send(conn)
+					if !pendingTaskRequest {
+						o.Warn("Asking for trouble")
+						p := o.MakeReadyForTask()
+						p.Send(conn)
+						o.Warn("Sent Request for trouble")
+						pendingTaskRequest = true
+					} else {
+						o.Warn("Sending Nop")
+						p := o.MakeNop()
+						p.Send(conn)
+					}
 				}
 			}
 		}

@@ -1,18 +1,25 @@
 package orchestra;
 
+/* P->C : Provide Client Identity and negotiate other initial parameters */
+message IdentifyClient {
+	required string		hostname = 1;
+}
+
 message JobParameter {
-	required string	key = 1;
-	required string	value = 2;
+	required string		key = 1;
+	required string		value = 2;
 }
 
+/* C->P : Do Shit kthxbye */
 message TaskRequest {
-	required string jobname = 1;
-	optional uint64	id = 2;
-	repeated JobParameter parameters = 3;
+	required string		jobname = 1;
+	required uint64		id = 2;
+	repeated JobParameter	parameters = 3;
 }
 
+/* C->P, P->C : Acknowledge Message */
 message Acknowledgement {
-	required uint64	id = 1;
+	required uint64		id = 1;
 	enum AckType {
 		ACK_OK = 1;
 		ACK_DUPLICATE = 2; /* Job or Response for JobID already exists locally */
@@ -21,6 +28,7 @@ message Acknowledgement {
 	required AckType	response = 2 [default=ACK_OK];
 }
 
+/* P->C : Results from Task */
 message TaskResponse {
 	required uint64	id = 1;
 	enum TaskStatus {
@@ -33,41 +41,4 @@ message TaskResponse {
 	}
 	required TaskStatus status = 3;
 	repeated JobParameter response = 4;
-}
-
-message QueueRequest {
-	required TaskRequest	job = 1;
-
-	enum TargetMode {
-		ONEOF = 1;
-		ALLOF = 2;
-	}
-	
-	required TargetMode where = 2;
-	repeated string target = 3;
-}
-
-message QueueResponse {
-	required bool	success = 1 [default=true];
-	required int64	id = 2;		// job id
-	optional string error = 3;
-}
-
-message StatusRequest {
-	required int64		id = 1; // job id
-}
-
-message StatusResponse {
-	required bool	success = 1 [default=true];
-	optional string	error   = 2;
-	repeated TaskResponse	responses = 3; // one for each target.
-}
-
-message IdentifyClient {
-	required string	hostname = 1;
-}
-
-service MasterProtocol {
-	rpc Queue (QueueRequest) returns (QueueResponse);
-	rpc Status (StatusRequest) returns (StatusResponse);
 }

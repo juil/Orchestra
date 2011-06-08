@@ -85,7 +85,7 @@ func StartRegistry() {
 
 func newRequest() (req *registryRequest) {
 	req = new(registryRequest)
-	req.responseChannel = make(chan *registryResponse)
+	req.responseChannel = make(chan *registryResponse, 1)
 
 	return req
 }

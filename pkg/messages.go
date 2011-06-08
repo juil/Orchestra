@@ -41,6 +41,8 @@ func Encode(msg Message) (pkt *WirePkt, err os.Error) {
 	return pkt, nil
 }
 
+/** TYPE=0 : NOP */
+
 type MsgNop struct {
 }
 
@@ -58,14 +60,32 @@ func (msg *MsgNop) Marshal() (resp interface{}) {
 	return nil
 }
 
-type MsgIdentifyClient struct {
-	Hostname	string
-	ProtocolVersion	uint32
+/** TYPE=2 : ReadyForTask */
+type MsgReadyForTask struct {
 }
 
-func NewIdentifyClient() (msg *MsgIdentifyClient) {
+func NewReadyForTask() (msg *MsgReadyForTask) {
+	msg = new(MsgReadyForTask)
+
+	return msg
+}
+
+func (msg *MsgReadyForTask) Type() (ptype uint8) {
+	return TypeReadyForTask
+}
+
+func (msg *MsgReadyForTask) Marshal() (resp interface{}) {
+	return nil
+}
+
+/** TYPE=1 : IdentifyClient */
+
+type MsgIdentifyClient struct {
+	Hostname	string
+}
+
+func MakeIdentifyClient() (msg *MsgIdentifyClient) {
 	msg = new(MsgIdentifyClient)
-	msg.ProtocolVersion = 1
 	
 	return msg
 }
@@ -75,10 +95,9 @@ func (msg *MsgIdentifyClient) Type() (ptype uint8) {
 }
 
 func (msg *MsgIdentifyClient) Marshal() (resp interface{}) {
-	ps := new(ProtoIdentifyClient)
+	ps := new(IdentifyClient)
 
 	ps.Hostname = proto.String(msg.Hostname)
-	ps.ProtocolVersion = proto.Uint32(msg.ProtocolVersion)
 
 	return ps
 }

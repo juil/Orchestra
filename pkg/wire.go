@@ -18,10 +18,12 @@ type WirePkt struct {
 }
 
 const (
-	TypeNop = 0
-	TypeIdentifyClient = 1
-	TypeReadyForTask = 2
-	TypeTaskRequest = 3
+	TypeNop			= 0
+	TypeIdentifyClient	= 1
+	TypeReadyForTask	= 2
+	TypeTaskRequest		= 3
+	TypeTaskResponse	= 4
+	TypeAcknowledgement	= 5
 )
 
 var (
@@ -76,14 +78,16 @@ func Receive(c net.Conn) (msg *WirePkt, err os.Error) {
 	}
 	msg.Type = preamble[0]
 	msg.Length = (uint16(preamble[1]) << 8) | uint16(preamble[2])
-	msg.Payload = make([]byte, msg.Length)
-	n, err = c.Read(msg.Payload)
-	if err != nil {
-		return nil, err
-	}
-	if n < int(msg.Length) {
-		/* short read!  wtf! err? */
-		return nil, ErrMalformedMessage
+	if msg.Length > 0 {
+		msg.Payload = make([]byte, msg.Length)
+		n, err = c.Read(msg.Payload)
+		if err != nil {
+			return nil, err
+		}
+		if n < int(msg.Length) {
+			/* short read!  wtf! err? */
+			return nil, ErrMalformedMessage
+		}
 	}
 
 	/* Decode! */

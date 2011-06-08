@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync/atomic"
 	"container/list"
+	o "orchestra"
 )
 
 var lastId uint64 = 0
@@ -106,35 +107,39 @@ func (req *JobRequest) valid() bool {
 	return true
 }
 
+const messageBuffer = 10
 
-type waitingPlayer struct {
-	name	string
-	c	chan JobTask
-}
-
-var newJob		= make(chan JobRequest)
-var rqTask		= make(chan JobTask)
-var playerIdle		= make(chan waitingPlayer)
-var statusRequest	= make(chan(chan QueueInformation))
+var newJob		= make(chan *JobRequest, messageBuffer)
+var rqTask		= make(chan *JobTask, messageBuffer)
+var playerIdle		= make(chan *ClientInfo, messageBuffer)
+var playerDead		= make(chan *ClientInfo, messageBuffer)
+var statusRequest	= make(chan(chan *QueueInformation))
 
 func (task *JobTask) IsTarget(player string) (valid bool) {
 	valid = false
-	n := sort.SearchStrings(task.job.Players, player)
-	if task.job.Players[n] == player {
-		valid = true
+	if task.player == "" {
+		n := sort.SearchStrings(task.job.Players, player)
+		if task.job.Players[n] == player {
+			valid = true
+		}
+	} else {
+		if task.player == player {
+			valid = true
+		}
 	}
 	return true
 }
 
-func PlayerWaitingForJob(name string, taskChannel chan JobTask) {
-	w := new(waitingPlayer)
-	w.name = name
-	w.c = taskChannel
-	playerIdle <- *w
+func PlayerWaitingForJob(player *ClientInfo) {
+	playerIdle <- player
+}
+
+func PlayerDied(player *ClientInfo) {
+	playerDead <- player
 }
 
 func (task *JobTask) Dispatch() {
-	rqTask <- *task
+	rqTask <- task
 }
 
 type QueueInformation struct {
@@ -143,7 +148,7 @@ type QueueInformation struct {
 }
 
 func DispatchStatus() (waitingTasks int, waitingPlayers []string) {
-	r := make(chan QueueInformation)
+	r := make(chan *QueueInformation)
 
 	statusRequest <- r
 	s := <- r
@@ -162,45 +167,57 @@ func masterDispatch() {
 	for {
 		select {
 		case player := <-playerIdle:
+			o.Warn("Dispatch: Player")
 			/* first, scan to see if we have anything for this player */
 			i := tq.Front()
 			for {
-				i = i.Next()
 				if (nil == i) {
 					/* Out of items! */
 					/* Append this player to the waiting players queue */
 					pq.PushBack(player)
 					break;
 				}
-				t,_ := i.Value.(JobTask)
-				if t.IsTarget(player.name) {
+				t,_ := i.Value.(*JobTask)
+				if t.IsTarget(player.Hostname) {
 					/* Found a valid job. Send it to the player, and remove it from our pending 
 					 * list */
 					tq.Remove(i)
-					player.c <- t
+					player.TaskQ <- t
+					break;
+				}
+				i = i.Next()
+			}
+		case player := <-playerDead:
+			o.Warn("Dispatch: Dead Player")
+			for i := pq.Front(); i != nil; i = i.Next() {
+				p, _ := i.Value.(*ClientInfo)
+				if player.Hostname == p.Hostname {
+					pq.Remove(i)
 					break;
 				}
 			}
 		case task := <-rqTask:
+			o.Warn("Dispatch: Task")
 			/* first, scan to see if we have valid pending player for this task */
 			i := pq.Front()
 			for {
-				i := i.Next();
 				if (nil == i) {
 					/* Out of players! */
 					/* Append this task to the waiting tasks queue */
 					tq.PushBack(task)
 					break;
 				}
-				p,_ := i.Value.(waitingPlayer)
-				if task.IsTarget(p.name) {
+				p,_ := i.Value.(*ClientInfo)
+				if task.IsTarget(p.Hostname) {
 					/* Found it. */
 					pq.Remove(i)
-					p.c <- task
+					p.TaskQ <- task
 					break;
 				}
+				i = i.Next();
 			}
 		case respChan := <-statusRequest:
+			o.Warn("Status!")
 			response := new(QueueInformation)
 			response.waitingTasks = tq.Len()
 			pqLen := pq.Len()
@@ -208,11 +225,11 @@ func masterDispatch() {
 			
 			idx := 0
 			for i := pq.Front(); i != nil; i = i.Next() {
-				player,_ := i.Value.(waitingPlayer)
-				response.idlePlayers[idx] = player.name
+				player,_ := i.Value.(*ClientInfo)
+				response.idlePlayers[idx] = player.Hostname
 				idx++
 			}
-			respChan <- *response
+			respChan <- response
 		}
 	}
 }
