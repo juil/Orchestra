@@ -9,6 +9,7 @@ import (
 	"net"
 	"time"
 	"fmt"
+	"os"
 )
 
 const (
@@ -45,7 +46,31 @@ func (client *ClientInfo) Name() (name string) {
 	}
 	return client.Hostname
 }
-	
+
+
+func handleNop(client *ClientInfo, message interface{}) {
+	o.Warn("Client %s: NOP Received", client.Name())
+}
+
+func handleIdentify(client *ClientInfo, message interface{}) {
+	if client.Hostname != "" {
+		o.Warn("Client %s: Tried to reintroduce itself.", client.Name())
+		client.Abort()
+		return
+	}
+	ic, _ := message.(*o.IdentifyClient)
+	o.Warn("Client %s: Identified Itself As \"%s\"", client.Name(), *ic.Hostname)
+	client.Hostname = *ic.Hostname
+	if !ClientAdd(client.Hostname, client) {
+		o.Warn("Couldn't register client %s.  aborting connection.", client.Name())
+		client.Abort()
+	}
+}
+
+var dispatcher	= map[uint8] func(*ClientInfo,interface{}) {
+	o.TypeNop:		handleNop,
+	o.TypeIdentifyClient:	handleIdentify,
+}
 
 func clientLogic(client *ClientInfo) {
 	loop := true
@@ -60,34 +85,22 @@ func clientLogic(client *ClientInfo) {
 				client.Abort()
 				break
 			}
-			switch p.Type {
-			case o.TypeNop:
-				o.Warn("Client %s NOP'd", client.Name())
-			default:
-				upkt, err := p.Decode()
+			var upkt interface {} = nil
+			if p.Length > 0 {
+				var err os.Error
+
+				upkt, err = p.Decode()
 				if err != nil {
 					o.Warn("Error unmarshalling message from Client %s: %s", client.Name(), err)
 					client.Abort()
 					break
 				}
-				switch p.Type {
-				case o.TypeIdentifyClient:
-					if client.Hostname != "" {
-						o.Warn("Client %s tried to reintroduce itself.", client.Name())
-						client.Abort()
-						break
-					}
-					ic, _ := upkt.(*o.IdentifyClient)
-					client.Hostname = *ic.Hostname
-					o.Warn("Client at %s Identified Itself As \"%s\"", client.Name(), client.Hostname)
-					if !ClientAdd(client.Hostname, client) {
-						o.Warn("Couldn't register client %s.  aborting connection.", client.Name());
-						client.Abort()
-						break;
-					}
-				default:
-					o.Warn("Unhandled Pkt Type %d", p.Type)
-				}
+			}
+			handler, exists := dispatcher[p.Type]
+			if (exists) {
+				handler(client, upkt)
+			} else {
+				o.Warn("Unhandled Pkt Type %d", p.Type)
 			}
 		case p := <-client.PktOutQ:
 			if p != nil {
