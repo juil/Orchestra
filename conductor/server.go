@@ -48,39 +48,13 @@ func ServiceRequests(bindAddr *net.IPAddr, hostname *string, serverCert tls.Cert
 	o.MightFail("Couldn't bind TLS listener", err)
 
 	for {
+		o.Warn("Waiting for Connection...")
 		c, err := listener.Accept()
 		o.MightFail("Couldn't accept TLS connection", err)
 		o.Warn("Connection received from %s", c.RemoteAddr().String())
-		go handleConnection(c)
+		HandleConnection(c)
 	}
 }
 
-func handleConnection(c net.Conn) {
-	var remoteHostname string = ""
 
-	for {
-		pkt, err := o.Receive(c)
-		if err != nil {
-			o.Warn("Error receiving message: %s", err)
-			break
-		}
-		if remoteHostname == "" && pkt.Type != o.TypeIdentifyClient {
-			o.Warn("Client didn't Identify self - got type %d instead!", pkt.Type)
-			break
-		}
-		upkt, err := pkt.Decode()
-		if err != nil {
-			o.Warn("Error unmarshalling message: %s", err)
-		}
-		switch pkt.Type {
-		case o.TypeIdentifyClient:
-			ic, _ := upkt.(*o.IdentifyClient)
-			remoteHostname = *ic.Hostname
-			o.Warn("Client Identified Itself As \"%s\"", remoteHostname)
-		default:
-			o.Warn("Unhandled Pkt Type %d", pkt.Type)
-		}
-	}
-	/*FIXME: Sever the client from the clients list. */
-	c.Close()
-}
+

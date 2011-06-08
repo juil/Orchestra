@@ -36,8 +36,8 @@ func main() {
 	
 	sockConfig.ServerName = o.ProbeHostname()
 
+	StartRegistry()
 	InitDispatch()
-
 	StartHTTP()
 
 	ServiceRequests(bindIp, nil, certpair)

@@ -8,11 +8,6 @@ import (
 	"os"
 )
 
-type ClientInfo struct {
-	SendQ	chan WirePkt
-}
-
-
 type registryRequest struct {
 	operation		int
 	hostname		string
@@ -29,13 +24,13 @@ const (
 	requestAdd = iota
 	requestGet
 	requestDelete
-	reuqestReplace
+	requestReplace
 )
 
 var (
-	ErrClientAlreadyConnected := os.NewError("Client is already connected")
+	ErrClientAlreadyConnected = os.NewError("Client is already connected")
 
-	chanRegistryRequest := make(chan registryRequest)
+	chanRegistryRequest = make(chan *registryRequest)
 )
 
 func manageRegistry() {
@@ -72,7 +67,7 @@ func manageRegistry() {
 				resp.success = false
 			}
 		case requestReplace:
-			_, exists := client[req.hostname]
+			_, exists := clientList[req.hostname]
 			if exists {
 				resp.success = true
 				clientList[req.hostname] = req.info
@@ -82,6 +77,10 @@ func manageRegistry() {
 		}
 		req.responseChannel <- resp
 	}
+}
+
+func StartRegistry() {
+	go manageRegistry()
 }
 
 func newRequest() (req *registryRequest) {

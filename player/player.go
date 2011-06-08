@@ -12,12 +12,19 @@ import (
 	"time"
 )
 
-var masterHostname *string = flag.String("master", "conductor", "Hostname of the Conductor")
-var localHostname  *string = flag.String("hostname", "", "My Hostname (defaults to autoprobing)")
-var masterPort     *int    = flag.Int("port", o.DefaultMasterPort, "Port to contact conductor on")
+const (
+	KeepaliveDelay = 5e9
+)
 
-var receivedMessage = make(chan o.WirePkt)
-var lostConnection = make(chan int)
+
+
+var (
+	masterHostname = flag.String("master", "conductor", "Hostname of the Conductor")
+	localHostname  = flag.String("hostname", "", "My Hostname (defaults to autoprobing)")
+	masterPort     = flag.Int("port", o.DefaultMasterPort, "Port to contact conductor on")
+	receivedMessage = make(chan *o.WirePkt)
+	lostConnection = make(chan int)
+)
 
 func Reader(conn net.Conn) {
 	for {
@@ -26,7 +33,7 @@ func Reader(conn net.Conn) {
 			o.Warn("Error receiving message: %s", err)
 			break;
 		}
-		receivedMessage <- *pkt
+		receivedMessage <- pkt
 	}
 	lostConnection <- 1
 	
@@ -52,13 +59,20 @@ func ProcessingLoop() {
 			p := o.NewIdentifyClient(*localHostname)			
 			p.Send(conn)
 
-			breakLoop := true
-			for breakLoop {
+			loop := true
+			for loop {
 				o.Warn("Waiting for some action!")
 				select {
 				case <-lostConnection:
 					o.Warn("Lost Connection to Master")
-					breakLoop = false
+					loop = false
+				case p := <-receivedMessage:
+					o.Warn("The Master spoke to me!")
+					p.Dump()
+				case <-time.After(KeepaliveDelay):
+					o.Warn("Sending Nop")
+					p := o.MakeNop()
+					p.Send(conn)
 				}
 			}
 		}
