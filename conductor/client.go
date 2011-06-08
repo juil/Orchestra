@@ -22,22 +22,27 @@ type ClientInfo struct {
 	Hostname	string
 	PktOutQ		chan *o.WirePkt
 	PktInQ		chan *o.WirePkt
-	AbortQ		chan int
+	abortQ		chan int
 	TaskQ		chan *JobTask
-	connection	net.Conn	
+	connection	net.Conn
+	pendingTasks	map[uint64]*JobTask
 }
 
 func NewClientInfo() (client *ClientInfo) {
 	client = new(ClientInfo)
-	client.AbortQ = make(chan int, 2)
+	client.abortQ = make(chan int, 2)
 	client.PktOutQ = make(chan *o.WirePkt, OutputQueueDepth)
 	client.PktInQ = make(chan *o.WirePkt)
+	client.TaskQ = make(chan *JobTask)
+
 
 	return client
 }
 
 func (client *ClientInfo) Abort() {
-	client.AbortQ <- 1;
+	PlayerDied(client)
+	ClientDelete(client.Hostname)
+	client.abortQ <- 1;
 }
 
 func (client *ClientInfo) Name() (name string) {
@@ -45,6 +50,26 @@ func (client *ClientInfo) Name() (name string) {
 		return "UNK:" + client.connection.RemoteAddr().String()
 	}
 	return client.Hostname
+}
+
+func (client *ClientInfo) SendTask(task *JobTask) {
+	tr := new(o.TaskRequest)
+	tr.Jobname = &task.Job.Score
+	tr.Id = new(uint64)
+	*tr.Id = task.Job.Id
+	tr.Parameters = make([]*o.JobParameter, len(task.Job.Params))
+	i := 0
+	for k,v := range task.Job.Params {
+		arg := new(o.JobParameter)
+		arg.Key = &k
+		arg.Value = &v
+		tr.Parameters[i] = arg
+		i++
+	}
+
+	p, err := o.Encode(tr)
+	o.MightFail("Couldn't encode task for client.", err)
+	client.PktOutQ <- p;
 }
 
 
@@ -124,12 +149,16 @@ func clientLogic(client *ClientInfo) {
 					client.Abort()
 				}
 			}
-		case <-client.AbortQ:
-			o.Warn("Client %s connection writer on fire!", client.Name())
-			PlayerDied(client)
-			ClientDelete(client.Hostname)
-			loop = false
+		case t := <-client.TaskQ:
+			/* we got a task? put it in the pending acknowledgement queue, 
+			 * and enqueue the actual client notification.
+			 */
+			client.pendingTasks[t.Job.Id] = t
+			client.SendTask(t)
 
+		case <-client.abortQ:
+			o.Warn("Client %s connection writer on fire!", client.Name())
+			loop = false
 		case <-time.After(KeepaliveDelay):
 			p := o.MakeNop()
 			o.Warn("Sending Keepalive to %s", client.Name())

@@ -10,6 +10,11 @@ import (
 	"goprotobuf.googlecode.com/hg/proto"
 )
 
+var (
+	ErrUnknownType = os.NewError("Unknown Type in Encode request")
+	ErrObjectTooLarge = os.NewError("Encoded Object exceeds maximum encoding size")
+)
+
 func (p *WirePkt) Decode() (obj interface{}, err os.Error) {
 	switch (p.Type) {
 	case TypeNop:
@@ -56,6 +61,33 @@ func (p *WirePkt) Decode() (obj interface{}, err os.Error) {
 	return nil, ErrUnknownMessage
 }
 
+func Encode(obj interface{}) (p *WirePkt, err os.Error) {
+	p = new(WirePkt)
+	switch obj.(type) {
+	case IdentifyClient:
+		p.Type = TypeIdentifyClient
+	case TaskRequest:
+		p.Type = TypeTaskRequest
+	case TaskResponse:
+		p.Type = TypeTaskResponse
+	case Acknowledgement:
+		p.Type = TypeAcknowledgement
+	default:
+		return nil, ErrUnknownType
+	}
+	p.Payload, err = proto.Marshal(obj)
+	if err != nil {
+		return nil, err
+	}
+	if len(p.Payload) >= 0x10000 {
+		return nil, ErrObjectTooLarge
+	}
+	p.Length = uint16(len(p.Payload))
+
+	return p, nil	
+}
+
+
 func MakeNop() (p *WirePkt) {
 	p = new(WirePkt)
 	p.Length = 0
@@ -66,22 +98,11 @@ func MakeNop() (p *WirePkt) {
 }
 
 func MakeIdentifyClient(hostname string) (p *WirePkt) {
-	p = new(WirePkt)
 	s := new(IdentifyClient)
 	s.Hostname = proto.String(hostname)
-	
-	var err os.Error
-	p.Payload, err = proto.Marshal(s)
-	if (err != nil) {
-		return nil
-	}
-	if len(p.Payload) >= 0x10000 {
-		/* result is too big to encode */
-		return nil
-	}
-	p.Length = uint16(len(p.Payload))
-	p.Type = TypeIdentifyClient
 
+	p, _ = Encode(s)
+	
 	return p
 }
 

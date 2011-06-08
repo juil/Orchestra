@@ -40,8 +40,8 @@ type JobResult struct {
  * which gets handed off elsewhere.
  */
 type JobTask struct {
-	job	*JobRequest
-	player	string
+	Job	*JobRequest
+	Player	string
 }
 
 func (req *JobRequest) MakeTasks() (tasks []*JobTask) {
@@ -57,9 +57,9 @@ func (req *JobRequest) MakeTasks() (tasks []*JobTask) {
 	
 	for c := 0; c < numtasks; c++ {
 		t := new(JobTask)
-		t.job = req
+		t.Job = req
 		if (req.Scope == AllOf) {
-			t.player = req.Players[c]
+			t.Player = req.Players[c]
 		}
 		tasks[c] = t
 	}
@@ -67,6 +67,7 @@ func (req *JobRequest) MakeTasks() (tasks []*JobTask) {
 }
 
 type JobRequest struct {
+	Score		string
 	Id		uint64
 	Scope		int
 	Players		[]string
@@ -117,13 +118,13 @@ var statusRequest	= make(chan(chan *QueueInformation))
 
 func (task *JobTask) IsTarget(player string) (valid bool) {
 	valid = false
-	if task.player == "" {
-		n := sort.SearchStrings(task.job.Players, player)
-		if task.job.Players[n] == player {
+	if task.Player == "" {
+		n := sort.SearchStrings(task.Job.Players, player)
+		if task.Job.Players[n] == player {
 			valid = true
 		}
 	} else {
-		if task.player == player {
+		if task.Player == player {
 			valid = true
 		}
 	}
