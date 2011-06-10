@@ -11,9 +11,12 @@ import (
 	o	"orchestra"
 )
 
-var x509CertFilename *string = flag.String("cert", "conductor_crt.pem", "File containing the Certificate")
-var x509PrivateKeyFilename *string = flag.String("key", "conductor_key.pem", "File containing the Private Key")
-var bindAddress    *string = flag.String("bind-addr", "", "Bind Address")
+var (
+	x509CertFilename = flag.String("cert", "conductor_crt.pem", "File containing the Certificate")
+	x509PrivateKeyFilename = flag.String("key", "conductor_key.pem", "File containing the Private Key")
+	bindAddress = flag.String("bind-addr", "", "Bind Address")
+	ConfigDirectory = flag.String("config-dir", "/etc/conductor", "Configuration Directory")
+)
 
 
 func main() {
@@ -36,6 +39,7 @@ func main() {
 	
 	sockConfig.ServerName = o.ProbeHostname()
 
+	ConfigLoad()
 	StartRegistry()
 	InitDispatch()
 	StartHTTP()

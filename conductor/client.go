@@ -86,6 +86,11 @@ func handleIdentify(client *ClientInfo, message interface{}) {
 	ic, _ := message.(*o.IdentifyClient)
 	o.Warn("Client %s: Identified Itself As \"%s\"", client.Name(), *ic.Hostname)
 	client.Hostname = *ic.Hostname
+	if (!HostAuthorised(client.Hostname)) {
+		o.Warn("Client %s: Not Authorised", client.Name())
+		client.Abort()
+		return
+	}
 	if !ClientAdd(client.Hostname, client) {
 		o.Warn("Couldn't register client %s.  aborting connection.", client.Name())
 		client.Abort()

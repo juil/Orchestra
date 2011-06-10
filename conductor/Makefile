@@ -12,6 +12,8 @@ GOFILES=\
 	http.go\
 	registry.go\
 	client.go\
+	signal.go\
+	config.go\
 
 include $(GOROOT)/src/Make.cmd
 
