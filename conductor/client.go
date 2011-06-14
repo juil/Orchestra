@@ -19,13 +19,13 @@ const (
 
 
 type ClientInfo struct {
-	Hostname	string
+	Player		string
 	PktOutQ		chan *o.WirePkt
 	PktInQ		chan *o.WirePkt
 	abortQ		chan int
-	TaskQ		chan *JobTask
+	TaskQ		chan *o.TaskRequest
 	connection	net.Conn
-	pendingTasks	map[uint64]*JobTask
+	pendingTasks	map[uint64]*o.TaskRequest
 }
 
 func NewClientInfo() (client *ClientInfo) {
@@ -33,7 +33,7 @@ func NewClientInfo() (client *ClientInfo) {
 	client.abortQ = make(chan int, 2)
 	client.PktOutQ = make(chan *o.WirePkt, OutputQueueDepth)
 	client.PktInQ = make(chan *o.WirePkt)
-	client.TaskQ = make(chan *JobTask)
+	client.TaskQ = make(chan *o.TaskRequest)
 
 
 	return client
@@ -41,32 +41,19 @@ func NewClientInfo() (client *ClientInfo) {
 
 func (client *ClientInfo) Abort() {
 	PlayerDied(client)
-	ClientDelete(client.Hostname)
+	ClientDelete(client.Player)
 	client.abortQ <- 1;
 }
 
 func (client *ClientInfo) Name() (name string) {
-	if client.Hostname == "" {
+	if client.Player == "" {
 		return "UNK:" + client.connection.RemoteAddr().String()
 	}
-	return client.Hostname
+	return client.Player
 }
 
-func (client *ClientInfo) SendTask(task *JobTask) {
-	tr := new(o.TaskRequest)
-	tr.Jobname = &task.Job.Score
-	tr.Id = new(uint64)
-	*tr.Id = task.Job.Id
-	tr.Parameters = make([]*o.JobParameter, len(task.Job.Params))
-	i := 0
-	for k,v := range task.Job.Params {
-		arg := new(o.JobParameter)
-		arg.Key = &k
-		arg.Value = &v
-		tr.Parameters[i] = arg
-		i++
-	}
-
+func (client *ClientInfo) SendTask(task *o.TaskRequest) {
+	tr := task.Encode()
 	p, err := o.Encode(tr)
 	o.MightFail("Couldn't encode task for client.", err)
 	client.PktOutQ <- p;
@@ -78,20 +65,20 @@ func handleNop(client *ClientInfo, message interface{}) {
 }
 
 func handleIdentify(client *ClientInfo, message interface{}) {
-	if client.Hostname != "" {
+	if client.Player != "" {
 		o.Warn("Client %s: Tried to reintroduce itself.", client.Name())
 		client.Abort()
 		return
 	}
 	ic, _ := message.(*o.IdentifyClient)
 	o.Warn("Client %s: Identified Itself As \"%s\"", client.Name(), *ic.Hostname)
-	client.Hostname = *ic.Hostname
-	if (!HostAuthorised(client.Hostname)) {
+	client.Player = *ic.Hostname
+	if (!HostAuthorised(client.Player)) {
 		o.Warn("Client %s: Not Authorised", client.Name())
 		client.Abort()
 		return
 	}
-	if !ClientAdd(client.Hostname, client) {
+	if !ClientAdd(client.Player, client) {
 		o.Warn("Couldn't register client %s.  aborting connection.", client.Name())
 		client.Abort()
 	}
@@ -124,7 +111,7 @@ func clientLogic(client *ClientInfo) {
 		select {
 		case p := <-client.PktInQ:
 			/* we've received a packet.  do something with it. */
-			if client.Hostname == "" && p.Type != o.TypeIdentifyClient {
+			if client.Player == "" && p.Type != o.TypeIdentifyClient {
 				o.Warn("Client %s didn't Identify self - got type %d instead!", client.Name(), p.Type)
 				client.Abort()
 				break

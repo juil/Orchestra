@@ -37,21 +37,21 @@ func (p *WirePkt) Decode() (obj interface{}, err os.Error) {
 		}
 		return nil, nil
 	case TypeTaskRequest:
-		tr := new(TaskRequest)
+		tr := new(ProtoTaskRequest)
 		err := proto.Unmarshal(p.Payload[0:p.Length], tr)
 		if err != nil {
 			return nil, err
 		}
 		return tr, nil
 	case TypeTaskResponse:
-		tr := new(TaskResponse)
+		tr := new(ProtoTaskResponse)
 		err := proto.Unmarshal(p.Payload[0:p.Length], tr)
 		if err != nil {
 			return nil, err
 		}
 		return tr, nil
 	case TypeAcknowledgement:
-		tr := new(Acknowledgement)
+		tr := new(ProtoAcknowledgement)
 		err := proto.Unmarshal(p.Payload[0:p.Length], tr)
 		if err != nil {
 			return nil, err
@@ -66,11 +66,11 @@ func Encode(obj interface{}) (p *WirePkt, err os.Error) {
 	switch obj.(type) {
 	case IdentifyClient:
 		p.Type = TypeIdentifyClient
-	case TaskRequest:
+	case ProtoTaskRequest:
 		p.Type = TypeTaskRequest
-	case TaskResponse:
+	case ProtoTaskResponse:
 		p.Type = TypeTaskResponse
-	case Acknowledgement:
+	case ProtoAcknowledgement:
 		p.Type = TypeAcknowledgement
 	default:
 		return nil, ErrUnknownType

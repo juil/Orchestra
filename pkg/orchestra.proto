@@ -5,20 +5,20 @@ message IdentifyClient {
 	required string		hostname = 1;
 }
 
-message JobParameter {
+message ProtoJobParameter {
 	required string		key = 1;
 	required string		value = 2;
 }
 
 /* C->P : Do Shit kthxbye */
-message TaskRequest {
+message ProtoTaskRequest {
 	required string		jobname = 1;
 	required uint64		id = 2;
-	repeated JobParameter	parameters = 3;
+	repeated ProtoJobParameter	parameters = 3;
 }
 
 /* C->P, P->C : Acknowledge Message */
-message Acknowledgement {
+message ProtoAcknowledgement {
 	required uint64		id = 1;
 	enum AckType {
 		ACK_OK = 1;
@@ -29,7 +29,7 @@ message Acknowledgement {
 }
 
 /* P->C : Results from Task */
-message TaskResponse {
+message ProtoTaskResponse {
 	required uint64	id = 1;
 	enum TaskStatus {
 		JOB_INPROGRESS = 2;	// Client has the job.
@@ -40,5 +40,5 @@ message TaskResponse {
 		JOB_UNKNOWN_FAILURE = 7;// somethign went wrong, but we don't know what.
 	}
 	required TaskStatus status = 3;
-	repeated JobParameter response = 4;
+	repeated ProtoJobParameter response = 4;
 }

@@ -4,7 +4,6 @@
 package main;
 
 import (
-	"sort"
 	"sync/atomic"
 	"container/list"
 	o "orchestra"
@@ -16,120 +15,20 @@ func nextRequestId() uint64 {
 	return atomic.AddUint64(&lastId, 1)
 }
 
-const (
-	OneOf = iota
-	AllOf
-
-	Queued
-	InProgress
-	Completed
-	JobFailed
-	HostFailed
-	JobUnknown
-	UnknownFailure
-)
-
-type JobResult struct {
-	Id		uint64
-	Success		uint64
-	Response	map[string] string
-	
-}
-
-/* this is the actual 'task' to execute
- * which gets handed off elsewhere.
- */
-type JobTask struct {
-	Job	*JobRequest
-	Player	string
-}
-
-func (req *JobRequest) MakeTasks() (tasks []*JobTask) {
-	var numtasks int
-	
-	switch (req.Scope) {
-	case OneOf:
-		numtasks = 1
-	case AllOf:
-		numtasks = len(req.Players)
-	}
-	tasks = make([]*JobTask, numtasks)
-	
-	for c := 0; c < numtasks; c++ {
-		t := new(JobTask)
-		t.Job = req
-		if (req.Scope == AllOf) {
-			t.Player = req.Players[c]
-		}
-		tasks[c] = t
-	}
-	return tasks
-}
-
-type JobRequest struct {
-	Score		string
-	Id		uint64
-	Scope		int
-	Players		[]string
-	Params		map[string] string
-	Results		map[string] JobResult
-}
-
-func NewRequest() (req *JobRequest) {
-	req = new(JobRequest)
-	
+func NewRequest() (req *o.JobRequest) {
+	req = o.NewRequest()
 	req.Id = nextRequestId()
 
 	return req
 }
 
-/* normalise a request prepares it for execution.
- *
- * There's a few semantics we fix on the way.
- *
- * OneOf jobs for a single host get reduced to a AllOf job.
-*/
-func (req *JobRequest) cook() {
-	if (len(req.Players) > 1) {
-		/* sort targets so search works */
-		sort.SortStrings(req.Players)
-	} else {
-		if (req.Scope == OneOf) {
-			req.Scope = AllOf
-		}
-	}
-}
-
-func (req *JobRequest) valid() bool {
-	if (len(req.Players) <= 0) {
-		return false
-	}
-
-	return true
-}
-
 const messageBuffer = 10
 
-var newJob		= make(chan *JobRequest, messageBuffer)
-var rqTask		= make(chan *JobTask, messageBuffer)
+var newJob		= make(chan *o.JobRequest, messageBuffer)
+var rqTask		= make(chan *o.TaskRequest, messageBuffer)
 var playerIdle		= make(chan *ClientInfo, messageBuffer)
 var playerDead		= make(chan *ClientInfo, messageBuffer)
 var statusRequest	= make(chan(chan *QueueInformation))
-
-func (task *JobTask) IsTarget(player string) (valid bool) {
-	valid = false
-	if task.Player == "" {
-		n := sort.SearchStrings(task.Job.Players, player)
-		if task.Job.Players[n] == player {
-			valid = true
-		}
-	} else {
-		if task.Player == player {
-			valid = true
-		}
-	}
-	return true
-}
 
 func PlayerWaitingForJob(player *ClientInfo) {
 	playerIdle <- player
@@ -139,7 +38,7 @@ func PlayerDied(player *ClientInfo) {
 	playerDead <- player
 }
 
-func (task *JobTask) Dispatch() {
+func DispatchTask(task *o.TaskRequest) {
 	rqTask <- task
 }
 
@@ -178,8 +77,8 @@ func masterDispatch() {
 					pq.PushBack(player)
 					break;
 				}
-				t,_ := i.Value.(*JobTask)
-				if t.IsTarget(player.Hostname) {
+				t,_ := i.Value.(*o.TaskRequest)
+				if t.IsTarget(player.Player) {
 					/* Found a valid job. Send it to the player, and remove it from our pending 
 					 * list */
 					tq.Remove(i)
@@ -192,7 +91,7 @@ func masterDispatch() {
 			o.Warn("Dispatch: Dead Player")
 			for i := pq.Front(); i != nil; i = i.Next() {
 				p, _ := i.Value.(*ClientInfo)
-				if player.Hostname == p.Hostname {
+				if player.Player == p.Player {
 					pq.Remove(i)
 					break;
 				}
@@ -209,7 +108,7 @@ func masterDispatch() {
 					break;
 				}
 				p,_ := i.Value.(*ClientInfo)
-				if task.IsTarget(p.Hostname) {
+				if task.IsTarget(p.Player) {
 					/* Found it. */
 					pq.Remove(i)
 					p.TaskQ <- task
@@ -227,7 +126,7 @@ func masterDispatch() {
 			idx := 0
 			for i := pq.Front(); i != nil; i = i.Next() {
 				player,_ := i.Value.(*ClientInfo)
-				response.idlePlayers[idx] = player.Hostname
+				response.idlePlayers[idx] = player.Player
 				idx++
 			}
 			respChan <- response

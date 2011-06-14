@@ -8,6 +8,7 @@ GOFILES=\
 	wire.go\
 	marshal.go\
 	shared.go\
+	request.go\
 
 include $(GOROOT)/src/Make.pkg
 include $(GOROOT)/src/pkg/goprotobuf.googlecode.com/hg/Make.protobuf
