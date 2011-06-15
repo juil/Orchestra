@@ -31,6 +31,17 @@ var (
 	ErrUnknownMessage   = os.NewError("Unknown Message")
 )
 
+func (p *WirePkt) ValidUnidentified() bool {
+	if p.Type == TypeNop {
+		return true
+	}
+	if p.Type == TypeIdentifyClient {
+		return true
+	}
+
+	return false
+}
+
 func (p *WirePkt) Send(c net.Conn) (n int, err os.Error) {
 	n = 0
 	preamble := make([]byte, 3)

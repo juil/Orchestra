@@ -11,9 +11,17 @@ import (
 )
 
 const (
-	JOB_ACCEPTED	= iota
+	JOB_QUEUED	= iota
+	JOB_ACCEPTED
 	JOB_FINISHED
 	JOB_FAILED
+
+	// Task is fresh and has never been sent to the client.  It can be rescheduled still.
+	TASK_QUEUED
+	// Task has been acknowledged by host and is executing.
+	TASK_PENDINGRESULT
+	// Task has finished and we have received a result.
+	TASK_FINISHED
 
 	SCOPE_ONEOF
 	SCOPE_ALLOF
@@ -28,14 +36,17 @@ type JobRequest struct {
 	Id		uint64
 	State		int
 	Params		map[string]string
-	Results		map[string]TaskResponse
+	Tasks		[]*TaskRequest
+	Results		map[string]*TaskResponse
 }
 type TaskRequest struct {
 	Job		*JobRequest
 	Player		string
 	State		int
+	RetryTime	int64
 }
 type TaskResponse struct {
+	State		int
 	Response	map[string]string
 }
 
@@ -110,7 +121,7 @@ func (req *JobRequest) normalise() {
 	}
 }
 
-func (req *JobRequest) Tasks() (tasks []*TaskRequest) {
+func (req *JobRequest) MakeTasks() (tasks []*TaskRequest) {
 	req.normalise()
 
 	var numtasks int
@@ -125,6 +136,7 @@ func (req *JobRequest) Tasks() (tasks []*TaskRequest) {
 	
 	for c := 0; c < numtasks; c++ {
 		t := new(TaskRequest)
+		t.State = TASK_QUEUED
 		t.Job = req
 		if (req.Scope == SCOPE_ALLOF) {
 			t.Player = req.Players[c]
@@ -143,7 +155,6 @@ func (req *JobRequest) Valid() bool {
 
 
 /** Task Related Magic */
-
 
 func (task *TaskRequest) IsTarget(player string) (valid bool) {
 	valid = false

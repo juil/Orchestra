@@ -13,7 +13,8 @@ import (
 
 const (
 //	KeepaliveDelay =	300e9 // once every 5 minutes.
-	KeepaliveDelay =	5e9 // once every 5 seconds for debug
+	KeepaliveDelay =	10e9 // once every 10 seconds for debug
+	RetryDelay     =  	5e9 // retry every 5 seconds.  Must be smaller than the keepalive to avoid channel race.
 	OutputQueueDepth =	10
 )
 
@@ -35,13 +36,15 @@ func NewClientInfo() (client *ClientInfo) {
 	client.PktInQ = make(chan *o.WirePkt)
 	client.TaskQ = make(chan *o.TaskRequest)
 
-
 	return client
 }
 
 func (client *ClientInfo) Abort() {
 	PlayerDied(client)
-	ClientDelete(client.Player)
+	reg := ClientGet(client.Player)
+	if reg != nil {
+		reg.Disassociate()
+	}
 	client.abortQ <- 1;
 }
 
@@ -59,6 +62,45 @@ func (client *ClientInfo) SendTask(task *o.TaskRequest) {
 	client.PktOutQ <- p;
 }
 
+func (client *ClientInfo) GotTask(task *o.TaskRequest) {
+	/* first up, look at the task state */
+	switch (task.State) {
+	case o.TASK_QUEUED:
+		fallthrough
+	case o.TASK_PENDINGRESULT:
+		/* this is a new task.  We should send it straight */
+		task.Player = client.Player
+		task.State = o.TASK_PENDINGRESULT
+
+		client.pendingTasks[task.Job.Id] = task
+		client.SendTask(task)
+		task.RetryTime = time.Nanoseconds() + RetryDelay
+	case o.TASK_FINISHED:
+		/* discard.  We don't care about tasks that are done. */		
+	}
+}
+
+// this merges the state from the registry record into the client it's called against.
+// it also copies back the active communication channels to the registry record.
+func (client *ClientInfo) MergeState(regrecord *ClientInfo) {
+	client.Player = regrecord.Player
+	client.pendingTasks = regrecord.pendingTasks
+
+	regrecord.TaskQ = client.TaskQ
+	regrecord.abortQ = client.abortQ
+	regrecord.PktOutQ = client.PktOutQ
+	regrecord.PktInQ = client.PktInQ
+	regrecord.connection = client.connection
+}
+
+// Sever the connection state from the client (used against registry records only)
+func (client *ClientInfo) Disassociate() {
+	client.TaskQ = nil
+	client.abortQ = nil
+	client.PktInQ = nil
+	client.PktOutQ = nil
+	client.connection = nil
+}
 
 func handleNop(client *ClientInfo, message interface{}) {
 	o.Warn("Client %s: NOP Received", client.Name())
@@ -78,10 +120,12 @@ func handleIdentify(client *ClientInfo, message interface{}) {
 		client.Abort()
 		return
 	}
-	if !ClientAdd(client.Player, client) {
+	reg := ClientGet(client.Player)
+	if nil == reg {
 		o.Warn("Couldn't register client %s.  aborting connection.", client.Name())
 		client.Abort()
 	}
+	client.MergeState(reg)
 }
 
 func handleReadyForTask(client *ClientInfo, message interface{}) {
@@ -93,6 +137,7 @@ func handleIllegal(client *ClientInfo, message interface{}) {
 	o.Warn("Client %s: Sent Illegal Message")
 	client.Abort()
 }
+
 
 var dispatcher	= map[uint8] func(*ClientInfo,interface{}) {
 	o.TypeNop:		handleNop,
@@ -107,7 +152,6 @@ var dispatcher	= map[uint8] func(*ClientInfo,interface{}) {
 func clientLogic(client *ClientInfo) {
 	loop := true
 	for loop {
-		o.Warn("CL:%s:Select", client.Name())
 		select {
 		case p := <-client.PktInQ:
 			/* we've received a packet.  do something with it. */
@@ -142,11 +186,8 @@ func clientLogic(client *ClientInfo) {
 				}
 			}
 		case t := <-client.TaskQ:
-			/* we got a task? put it in the pending acknowledgement queue, 
-			 * and enqueue the actual client notification.
-			 */
-			client.pendingTasks[t.Job.Id] = t
-			client.SendTask(t)
+			/* we got a task?  Enqueue it, and work out if we need to deal with it now. */
+			client.GotTask(t)
 
 		case <-client.abortQ:
 			o.Warn("Client %s connection writer on fire!", client.Name())
@@ -165,11 +206,14 @@ func clientLogic(client *ClientInfo) {
 }
 
 func clientReceiver(client *ClientInfo) {
+	conn := client.connection
+
+
 	loop := true
 	for loop {
-		pkt, err := o.Receive(client.connection)
+		pkt, err := o.Receive(conn)
 		if nil != err {
-			o.Warn("Error receiving pkt from host %s: %s", client.Name(), err)
+			o.Warn("Error receiving pkt from %s: %s", conn.RemoteAddr().String(), err)
 			client.Abort()
 			client.connection.Close()
 			loop = false
@@ -177,14 +221,14 @@ func clientReceiver(client *ClientInfo) {
 			client.PktInQ <- pkt
 		}
 	}
-	o.Warn("Client %s connection reader on fire!", client.Name())
+	o.Warn("Client %s connection reader on fire!", conn.RemoteAddr().String())
 }
 
 /* The Main Server loop calls this method to hand off connections to us */
 func HandleConnection(conn net.Conn) {
+	/* this is a temporary client info, we substitute it for the real
+	 * one once we ID the connection correctly */
 	c := NewClientInfo()
-	c.connection = conn
-	
 	go clientReceiver(c)
 	go clientLogic(c)
 }

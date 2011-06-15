@@ -5,13 +5,13 @@
 package main;
 
 import (
-	"os"
+	o "orchestra"
 )
 
 type registryRequest struct {
 	operation		int
 	hostname		string
-	info			*ClientInfo
+	hostlist		[]string
 	responseChannel		chan *registryResponse
 }
 
@@ -24,18 +24,27 @@ const (
 	requestAdd = iota
 	requestGet
 	requestDelete
-	requestReplace
+	requestSync
 )
 
 var (
-	ErrClientAlreadyConnected = os.NewError("Client is already connected")
-
-	chanRegistryRequest = make(chan *registryRequest)
+	chanRegistryRequest	= make(chan *registryRequest)
+ 	clientList 		= make(map[string]*ClientInfo)
 )
 
+func regInternalAdd(hostname string) {
+	o.Warn("Registry: New Host \"%s\"", hostname)
+	clientList[hostname] = NewClientInfo()
+	clientList[hostname].Player = hostname
+}
+
+func regInternalDel(hostname string) {
+	o.Warn("Registry: Deleting Host \"%s\"", hostname)
+	/* remove it from the registry */
+	clientList[hostname] = nil, false
+}
+
 func manageRegistry() {
- 	clientList := make(map[string]*ClientInfo)
-	
 	for {
 		req := <-chanRegistryRequest
 		resp := new(registryResponse)
@@ -47,7 +56,7 @@ func manageRegistry() {
 			if exists {
 				resp.success = false
 			} else {
-				clientList[req.hostname] = req.info
+				regInternalAdd(req.hostname)
 				resp.success = true
 			}
 		case requestGet:
@@ -62,20 +71,44 @@ func manageRegistry() {
 			_, exists := clientList[req.hostname]
 			if exists {
 				resp.success = true
-				clientList[req.hostname] = nil, false
+				regInternalDel(req.hostname)
 			} else {
 				resp.success = false
 			}
-		case requestReplace:
-			_, exists := clientList[req.hostname]
-			if exists {
-				resp.success = true
-				clientList[req.hostname] = req.info
-			} else {
-				resp.success = false
+		case requestSync:
+			/* we need to make sure the registered clients matches
+			 * the hostlist we're given.
+			 *
+			 * First, we transform the array into a map
+			 */
+			newhosts := make(map[string]bool)
+			for k,_ := range req.hostlist {
+				newhosts[req.hostlist[k]] = true
 			}
+			/* now, scan the current list, checking to see if
+			 * they exist.  Remove them from the newhosts map
+			 * if they do exist. 
+			 */
+			for k,_ := range clientList {
+				_, exists := newhosts[k]
+				if exists {
+					/* remove it from the newhosts map */
+					newhosts[k] = false, false
+				} else {
+					regInternalDel(k)
+				}
+			}
+			/* now that we're finished, we should only have
+			 * new clients in the newhosts list left. 
+			 */
+			for k,_ := range newhosts {
+				regInternalAdd(k)
+			}
+			/* and we're done. */
 		}
-		req.responseChannel <- resp
+		if req.responseChannel != nil {
+			req.responseChannel <- resp
+		}
 	}
 }
 
@@ -90,22 +123,10 @@ func newRequest() (req *registryRequest) {
 	return req
 }
 	
-func ClientAdd(hostname string, info *ClientInfo) (success bool) {
+func ClientAdd(hostname string) (success bool) {
 	r := newRequest()
 	r.operation = requestAdd
 	r.hostname = hostname
-	r.info = info
-	chanRegistryRequest <- r
-	resp := <- r.responseChannel
-	
-	return resp.success
-}
-
-func ClientReplace(hostname string, info *ClientInfo) (success bool) {
-	r := newRequest()
-	r.operation = requestReplace
-	r.hostname = hostname
-	r.info = info
 	chanRegistryRequest <- r
 	resp := <- r.responseChannel
 	
@@ -132,4 +153,14 @@ func ClientGet(hostname string) (info *ClientInfo) {
 		return resp.info
 	}
 	return nil
-}	
+}
+
+func ClientUpdateKnown(hostnames []string) {
+	/* this is an asynchronous, we feed it into the registry 
+	 * and it'll look after itself.
+	*/
+	r := newRequest()
+	r.operation = requestSync
+	r.hostlist = hostnames
+	chanRegistryRequest <- r
+}
