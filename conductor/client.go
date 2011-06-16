@@ -60,6 +60,7 @@ func (client *ClientInfo) SendTask(task *o.TaskRequest) {
 	p, err := o.Encode(tr)
 	o.MightFail("Couldn't encode task for client.", err)
 	client.PktOutQ <- p;
+	task.RetryTime = time.Nanoseconds() + RetryDelay
 }
 
 func (client *ClientInfo) GotTask(task *o.TaskRequest) {
@@ -74,7 +75,6 @@ func (client *ClientInfo) GotTask(task *o.TaskRequest) {
 
 		client.pendingTasks[task.Job.Id] = task
 		client.SendTask(task)
-		task.RetryTime = time.Nanoseconds() + RetryDelay
 	case o.TASK_FINISHED:
 		/* discard.  We don't care about tasks that are done. */		
 	}
@@ -149,10 +149,49 @@ var dispatcher	= map[uint8] func(*ClientInfo,interface{}) {
 
 }
 
+var loopFudge int64 = 10e6; /* 10 ms should be enough fudgefactor */
 func clientLogic(client *ClientInfo) {
 	loop := true
 	for loop {
+		var	retryWait <-chan int64 = nil
+		var	retryTask *o.TaskRequest = nil
+		if (client.Player != "") {
+			var waitTime int64 = 0
+			var now int64 = 0
+			cleanPass := false
+			attempts := 0
+			for !cleanPass && attempts < 10 {
+				/* reset our state for the pass */
+				waitTime = 0
+				retryTask = nil
+				attempts++
+				cleanPass = true
+				now = time.Nanoseconds() + loopFudge
+				// if the client is correctly associated,
+				// evaluate all jobs for outstanding retries,
+				// and work out when our next retry is due.
+				for _,v := range client.pendingTasks {
+					if v.RetryTime < now {
+						client.SendTask(v)
+						cleanPass = false
+					} else {
+						if waitTime == 0 || v.RetryTime < waitTime {
+							retryTask = v
+							waitTime = v.RetryTime
+						}
+					}
+				}
+			}
+			if (attempts > 10) {
+				o.Fail("Couldn't find next timeout without restarting excessively.")
+			}
+			if (retryTask != nil) {
+				retryWait = time.After(waitTime-time.Nanoseconds())
+			}
+		}
 		select {
+		case <-retryWait:
+			client.SendTask(retryTask)
 		case p := <-client.PktInQ:
 			/* we've received a packet.  do something with it. */
 			if client.Player == "" && p.Type != o.TypeIdentifyClient {
@@ -186,9 +225,7 @@ func clientLogic(client *ClientInfo) {
 				}
 			}
 		case t := <-client.TaskQ:
-			/* we got a task?  Enqueue it, and work out if we need to deal with it now. */
 			client.GotTask(t)
-
 		case <-client.abortQ:
 			o.Warn("Client %s connection writer on fire!", client.Name())
 			loop = false
@@ -229,6 +266,7 @@ func HandleConnection(conn net.Conn) {
 	/* this is a temporary client info, we substitute it for the real
 	 * one once we ID the connection correctly */
 	c := NewClientInfo()
+	c.connection = conn
 	go clientReceiver(c)
 	go clientLogic(c)
 }

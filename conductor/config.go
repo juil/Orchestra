@@ -9,10 +9,6 @@ import (
 	"github.com/kless/goconfig/config"
 )
 
-
-/* we actually use this as a cheap set, rather than a map */
-var	authorisedHosts		map[string]bool
-
 var	conf	*config.Config = nil
 
 func init() {
@@ -37,11 +33,11 @@ func ConfigLoad() {
 	resetConfig()
 
 	pfh, err := os.Open(pathFor("players"))
-	o.MightFail("Couldn't open \"players\": %s", err)
+	o.MightFail("Couldn't open \"players\"", err)
 
 	pbr := bufio.NewReader(pfh)
 
-	newAuthorisedHosts := make(map[string]bool)
+	ahmap := make(map[string]bool)
 	for err = nil; err == nil; {
 		var lb		[]byte
 		var prefix	bool
@@ -56,22 +52,27 @@ func ConfigLoad() {
 		}
 		
 		line := strings.TrimSpace(string(lb))
+		if line == "" {
+			continue;
+		}
 		if line[0] == '#' {
 			continue;
 		}
-		newAuthorisedHosts[line] = true
+		ahmap[line] = true
 	}
-	authorisedHosts = newAuthorisedHosts
-
+	// convert newAuthorisedHosts to a slice
+	authorisedHosts := make([]string, len(ahmap))
+	idx := 0
+	for k,_ := range ahmap {
+		authorisedHosts[idx] = k
+		idx++
+	}
+	ClientUpdateKnown(authorisedHosts)
 }
 
 
 func HostAuthorised(hostname string) (r bool) {
 	/* if we haven't loaded the configuration, nobody is authorised */
-	if authorisedHosts == nil {
-		return false
-	}
-	_, exists := authorisedHosts[hostname]
-
-	return exists	
+	ci := ClientGet(hostname)
+	return ci != nil
 }

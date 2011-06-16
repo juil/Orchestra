@@ -39,12 +39,13 @@ func main() {
 	
 	sockConfig.ServerName = o.ProbeHostname()
 
-	/* Start the client registry. */
+	// Start the client registry - configuration parsing will block indefinately
+	// if the registry listener isn't working
 	StartRegistry()
-	/* do an initial configuration load */
+	// do an initial configuration load
 	ConfigLoad()
 
-	/* start the master dispatch system. */
+	// start the master dispatch system
 	InitDispatch()
 	StartHTTP()
 

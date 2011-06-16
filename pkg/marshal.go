@@ -64,15 +64,16 @@ func (p *WirePkt) Decode() (obj interface{}, err os.Error) {
 func Encode(obj interface{}) (p *WirePkt, err os.Error) {
 	p = new(WirePkt)
 	switch obj.(type) {
-	case IdentifyClient:
+	case *IdentifyClient:
 		p.Type = TypeIdentifyClient
-	case ProtoTaskRequest:
+	case *ProtoTaskRequest:
 		p.Type = TypeTaskRequest
-	case ProtoTaskResponse:
+	case *ProtoTaskResponse:
 		p.Type = TypeTaskResponse
-	case ProtoAcknowledgement:
+	case *ProtoAcknowledgement:
 		p.Type = TypeAcknowledgement
 	default:
+		Warn("Encoding unknown type!")
 		return nil, ErrUnknownType
 	}
 	p.Payload, err = proto.Marshal(obj)
