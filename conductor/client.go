@@ -15,7 +15,7 @@ const (
 //	KeepaliveDelay =	300e9 // once every 5 minutes.
 	KeepaliveDelay =	10e9 // once every 10 seconds for debug
 	RetryDelay     =  	5e9 // retry every 5 seconds.  Must be smaller than the keepalive to avoid channel race.
-	OutputQueueDepth =	10
+	OutputQueueDepth =	10 // This needs to be large enough that we don't deadlock on ourself.
 )
 
 
@@ -55,11 +55,25 @@ func (client *ClientInfo) Name() (name string) {
 	return client.Player
 }
 
+// Must not be used from inside of handlers.
+func (client *ClientInfo) Send(p *o.WirePkt) {
+	client.PktOutQ <- p
+}
+
+// Can only be used form inside of handlers and the main client loop.
+func (client *ClientInfo) sendNow(p *o.WirePkt) {
+	_, err := p.Send(client.connection)
+	if err != nil {
+		o.Warn("Error sending pkt to %s: %s", client.Name(), err)
+		client.Abort()
+	}
+}
+
 func (client *ClientInfo) SendTask(task *o.TaskRequest) {
 	tr := task.Encode()
 	p, err := o.Encode(tr)
 	o.MightFail("Couldn't encode task for client.", err)
-	client.PktOutQ <- p;
+	client.Send(p)
 	task.RetryTime = time.Nanoseconds() + RetryDelay
 }
 
@@ -148,13 +162,13 @@ func handleResult(client *ClientInfo, message interface{}){
 		job := o.JobGet(r.Id)
 		if nil == job {
 			nack := o.MakeNack(r.Id)
-			client.PktOutQ <- nack
+			client.sendNow(nack)
 		} else {
 			job := o.JobGet(r.Id)
 			if job != nil {
 				/* if the job exists, Ack it. */
 				ack := o.MakeAck(r.Id)
-				client.PktOutQ <- ack
+				client.sendNow(ack)
 			}
 			// now, we only accept the results if we were
 			// expecting the results (ie: it was pending)
@@ -251,11 +265,7 @@ func clientLogic(client *ClientInfo) {
 			}
 		case p := <-client.PktOutQ:
 			if p != nil {
-				_, err := p.Send(client.connection)
-				if err != nil {
-					o.Warn("Error sending pkt to %s: %s", client.Name(), err)
-					client.Abort()
-				}
+				client.sendNow(p)
 			}
 		case t := <-client.TaskQ:
 			client.GotTask(t)
