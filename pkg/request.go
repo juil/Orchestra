@@ -1,4 +1,4 @@
-/* request.go
+u/* request.go
  *
  * Request objects, half the marshalling code. 
 */
@@ -11,17 +11,20 @@ import (
 )
 
 const (
-	JOB_QUEUED	= iota
-	JOB_ACCEPTED
-	JOB_FINISHED
-	JOB_FAILED
-
 	// Task is fresh and has never been sent to the client.  It can be rescheduled still.
-	TASK_QUEUED
+	TASK_QUEUED	= iota
 	// Task has been acknowledged by host and is executing.
 	TASK_PENDINGRESULT
 	// Task has finished and we have received a result.
 	TASK_FINISHED
+
+	// Response states
+	RESP_RUNNING
+	RESP_FINISHED
+	RESP_FAILED
+	RESP_FAILED_UNKNOWN_SCORE
+	RESP_FAILED_HOST_ERROR
+	RESP_FAILED_UNKNOWN // unknown error.  it just didnt work.
 
 	SCOPE_ONEOF
 	SCOPE_ALLOF
@@ -37,7 +40,8 @@ type JobRequest struct {
 	State		int
 	Params		map[string]string
 	Tasks		[]*TaskRequest
-	Results		map[string]*TaskResponse
+	// These are private - you need to use the registry to access these
+	results		map[string]*TaskResponse
 }
 type TaskRequest struct {
 	Job		*JobRequest
@@ -47,6 +51,7 @@ type TaskRequest struct {
 }
 type TaskResponse struct {
 	State		int
+	Id		uint64
 	Response	map[string]string
 }
 
@@ -86,7 +91,7 @@ func jobParametersFromMap(mapparam map[string]string) (parray []*ProtoJobParamet
  * a task structure
 */
 func JobFromProto(ptr *ProtoTaskRequest) (j *JobRequest) {
-	j = new(JobRequest)
+	j = NewJobRequest()
 	
 	j.Score = *(ptr.Jobname)
 	j.Id = *(ptr.Id)
@@ -105,8 +110,9 @@ func (task *TaskRequest) Encode() (ptr *ProtoTaskRequest) {
 	return ptr
 }
 
-func NewRequest() (req *JobRequest) {
+func NewJobRequest() (req *JobRequest) {
 	req = new(JobRequest)
+	req.results = make(map[string]*TaskResponse)
 	return req
 }
 
@@ -169,4 +175,48 @@ func (task *TaskRequest) IsTarget(player string) (valid bool) {
 		}
 	}
 	return true
+}
+
+
+// Response related magic
+
+func (resp *TaskResponse) IsFinished() bool {
+	switch resp.State {
+	case RESP_FINISHED:
+		fallthrough
+	case RESP_FAILED:
+		fallthrough
+	case RESP_FAILED_UNKNOWN_SCORE:
+		fallthrough
+	case RESP_FAILED_HOST_ERROR:
+		return true
+	}
+	return false
+}
+
+
+func ResponseFromProto(ptr *ProtoTaskResponse) (r *TaskResponse) {
+	r = new(TaskResponse)
+
+	switch (*(ptr.Status)) {
+	case ProtoTaskResponse_JOB_INPROGRESS:
+		r.State = RESP_RUNNING
+	case ProtoTaskResponse_JOB_SUCCESS:
+		r.State = RESP_FINISHED
+	case ProtoTaskResponse_JOB_FAILED:
+		r.State = RESP_FAILED
+	case ProtoTaskResponse_JOB_HOST_FAILURE:
+		r.State = RESP_FAILED_HOST_ERROR
+	case ProtoTaskResponse_JOB_UNKNOWN:
+		r.State = RESP_FAILED_UNKNOWN_SCORE
+	case ProtoTaskResponse_JOB_UNKNOWN_FAILURE:
+		fallthrough
+	default:
+		r.State = RESP_FAILED_UNKNOWN
+	}
+
+	r.Id = *(ptr.Id)
+	r.Response = mapFromJobParameters(ptr.Response)
+
+	return r
 }

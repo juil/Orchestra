@@ -22,7 +22,6 @@ message ProtoAcknowledgement {
 	required uint64		id = 1;
 	enum AckType {
 		ACK_OK = 1;
-		ACK_DUPLICATE = 2; /* Job or Response for JobID already exists locally */
 		ACK_ERROR = 3; /* Other Error */
 	}
 	required AckType	response = 2 [default=ACK_OK];

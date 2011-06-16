@@ -115,3 +115,27 @@ func MakeReadyForTask() (p *WirePkt){
 
 	return p
 }
+
+/* We use the failure code for negative acknowledgements */
+func MakeNack(id uint64) (p *WirePkt) {
+	a := new(ProtoAcknowledgement)
+	a.Id = proto.Uint64(id)
+	a.Response = new(ProtoAcknowledgement_AckType)
+	*(a.Response) = ProtoAcknowledgement_ACK_ERROR
+
+	p, _ = Encode(a)
+
+	return p
+}
+
+// Construct a positive ACK for transmission
+func MakeAck(id uint64) (p *WirePkt) {
+	a := new(ProtoAcknowledgement)
+	a.Id = proto.Uint64(id)
+	a.Response = new(ProtoAcknowledgement_AckType)
+	*(a.Response) = ProtoAcknowledgement_ACK_OK
+
+	p, _ = Encode(a)
+
+	return p
+}

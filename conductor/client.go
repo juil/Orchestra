@@ -138,12 +138,45 @@ func handleIllegal(client *ClientInfo, message interface{}) {
 	client.Abort()
 }
 
+func handleResult(client *ClientInfo, message interface{}){
+	jr, _ := message.(*o.ProtoTaskResponse)
+	r := o.ResponseFromProto(jr)
+	// at this point in time, we only care about terminal
+	// condition codes.  a Job that isn't finished is just
+	// prodding us back to let us know it lives.
+	if r.IsFinished() {
+		job := o.JobGet(r.Id)
+		if nil == job {
+			nack := o.MakeNack(r.Id)
+			client.PktOutQ <- nack
+		} else {
+			job := o.JobGet(r.Id)
+			if job != nil {
+				/* if the job exists, Ack it. */
+				ack := o.MakeAck(r.Id)
+				client.PktOutQ <- ack
+			}
+			// now, we only accept the results if we were
+			// expecting the results (ie: it was pending)
+			// and expunge the task information from the
+			// pending list so we stop bugging the client for it.
+			task, exists := client.pendingTasks[r.Id]
+			if exists {
+				o.JobAddResult(client.Player, r)
+				//FIXME: we also need to review the job's state now
+				task.State = o.TASK_FINISHED
+				client.pendingTasks[r.Id] = nil, false
+			}
+		}
+	}
+}
+
 
 var dispatcher	= map[uint8] func(*ClientInfo,interface{}) {
 	o.TypeNop:		handleNop,
 	o.TypeIdentifyClient:	handleIdentify,
 	o.TypeReadyForTask:	handleReadyForTask,
-
+	o.TypeTaskResponse:	handleResult,
 	/* C->P only messages, should never appear on the wire. */
 	o.TypeTaskRequest:	handleIllegal,
 

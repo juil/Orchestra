@@ -1,11 +1,25 @@
-/* registry.go
- *
-*/
+// registry.go
+//
+// The Registry provides a 'threadsafe' interface to various global information stores.
+//
+// The registry dispatch thread is forbidden from performing any work that is likely to block.
+// Result channels must be buffered with enough space for the full set of results.
+//
+// This registry implementation implements stores that will be only be needed on the conductor.
 
 package main;
 
 import (
 	o "orchestra"
+)
+
+
+// Request Types
+const (
+	requestAddClient = iota
+	requestGetClient
+	requestDeleteClient
+	requestSyncClients
 )
 
 type registryRequest struct {
@@ -19,13 +33,6 @@ type registryResponse struct {
 	success			bool
 	info			*ClientInfo
 }
-
-const (
-	requestAdd = iota
-	requestGet
-	requestDelete
-	requestSync
-)
 
 var (
 	chanRegistryRequest	= make(chan *registryRequest)
@@ -51,7 +58,7 @@ func manageRegistry() {
 		/* by default, we failed. */
 		resp.success = false
 		switch (req.operation) {
-		case requestAdd:
+		case requestAddClient:
 			_, exists := clientList[req.hostname]
 			if exists {
 				resp.success = false
@@ -59,7 +66,7 @@ func manageRegistry() {
 				regInternalAdd(req.hostname)
 				resp.success = true
 			}
-		case requestGet:
+		case requestGetClient:
 			clinfo, exists := clientList[req.hostname]
 			if exists {
 				resp.success = true
@@ -67,7 +74,7 @@ func manageRegistry() {
 			} else {
 				resp.success = false
 			}
-		case requestDelete:
+		case requestDeleteClient:
 			_, exists := clientList[req.hostname]
 			if exists {
 				resp.success = true
@@ -75,7 +82,7 @@ func manageRegistry() {
 			} else {
 				resp.success = false
 			}
-		case requestSync:
+		case requestSyncClients:
 			/* we need to make sure the registered clients matches
 			 * the hostlist we're given.
 			 *
@@ -125,7 +132,7 @@ func newRequest() (req *registryRequest) {
 	
 func ClientAdd(hostname string) (success bool) {
 	r := newRequest()
-	r.operation = requestAdd
+	r.operation = requestAddClient
 	r.hostname = hostname
 	chanRegistryRequest <- r
 	resp := <- r.responseChannel
@@ -135,7 +142,7 @@ func ClientAdd(hostname string) (success bool) {
 
 func ClientDelete(hostname string) (success bool) {
 	r := newRequest()
-	r.operation = requestDelete
+	r.operation = requestDeleteClient
 	r.hostname = hostname
 	chanRegistryRequest <- r
 	resp := <- r.responseChannel
@@ -145,7 +152,7 @@ func ClientDelete(hostname string) (success bool) {
 
 func ClientGet(hostname string) (info *ClientInfo) {
 	r := newRequest()
-	r.operation = requestGet
+	r.operation = requestGetClient
 	r.hostname = hostname
 	chanRegistryRequest <- r
 	resp := <- r.responseChannel
@@ -160,7 +167,7 @@ func ClientUpdateKnown(hostnames []string) {
 	 * and it'll look after itself.
 	*/
 	r := newRequest()
-	r.operation = requestSync
+	r.operation = requestSyncClients
 	r.hostlist = hostnames
 	chanRegistryRequest <- r
 }

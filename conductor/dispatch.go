@@ -16,7 +16,7 @@ func nextRequestId() uint64 {
 }
 
 func NewRequest() (req *o.JobRequest) {
-	req = o.NewRequest()
+	req = o.NewJobRequest()
 
 	return req
 }
@@ -64,8 +64,8 @@ func QueueJob(job *o.JobRequest) {
 	job.Id = nextRequestId()
 	/* first up, split the job up into it's tasks. */
 	job.Tasks = job.MakeTasks()
-	/* now, initialise the response structure. */
-	job.Results = make(map[string]*o.TaskResponse)
+	/* add it to the registry */
+	o.JobAdd(job)
 	/* an enqueue all of the tasks */
 	for i := range job.Tasks {
 		DispatchTask(job.Tasks[i])
