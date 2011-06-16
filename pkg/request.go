@@ -1,4 +1,4 @@
-u/* request.go
+/* request.go
  *
  * Request objects, half the marshalling code. 
 */
