@@ -1,0 +1,51 @@
+Audience API:
+
+So:  Our Audience needs a way to do shit.
+
+JSON is the way!  really!.
+
+Unixsocket: 
+  Connect to Mr Socket.
+  Feed him JSON.
+  Get JSON back.
+  Close.
+
+
+QUEUE JOB:
+
+Request:
+- dict:
+  - 'Op': 'queue'
+  - 'Score':  Score Name
+  - 'Players':  Array
+    - playername
+  - 'Scope': either 'all' or 'one'
+  - 'Params': dict
+    - k/v's passed through to job.
+
+Response:
+- array:
+[error, jobid]
+
+GET STATUS:
+Request:
+- dict:
+  - 'op': 'status'
+  - 'id': jobid
+
+Response:
+- array:
+[error, dict]
+
+dict is:
+- 'status': aggregated result "OK/Failure"
+- 'players': dict - individual results
+  - hostname: dict
+    - 'status': individual OK/Failure
+    - 'response': dict
+
+error is 'OK' if successful.  jobid is the JobID if sucessful.
+
+Error is otherwise an error mesage.
+
+

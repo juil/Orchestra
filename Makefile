@@ -8,6 +8,7 @@ PKGDIRS=\
 DIRS=\
 	conductor\
 	player\
+	submitjob\
 
 clean.dirs: $(addsuffix .clean, $(PKGDIRS)) $(addsuffix .clean, $(DIRS))
 install.dirs: $(addsuffix .install, $(DIRS))

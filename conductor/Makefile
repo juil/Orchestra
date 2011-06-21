@@ -14,6 +14,7 @@ GOFILES=\
 	client.go\
 	signal.go\
 	config.go\
+	audience.go\
 
 include $(GOROOT)/src/Make.cmd
 
