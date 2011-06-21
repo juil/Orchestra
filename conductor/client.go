@@ -94,6 +94,12 @@ func (client *ClientInfo) GotTask(task *o.TaskRequest) {
 	}
 }
 
+// reset the task state so it can be requeued.
+func CleanTask(task *o.TaskRequest) {
+	task.State = o.TASK_QUEUED
+	task.Player = ""
+}
+
 // this merges the state from the registry record into the client it's called against.
 // it also copies back the active communication channels to the registry record.
 func (client *ClientInfo) MergeState(regrecord *ClientInfo) {
@@ -176,9 +182,34 @@ func handleResult(client *ClientInfo, message interface{}){
 			// pending list so we stop bugging the client for it.
 			task, exists := client.pendingTasks[r.Id]
 			if exists {
+				// store the result.
 				o.JobAddResult(client.Player, r)
-				//FIXME: we also need to review the job's state now
-				task.State = o.TASK_FINISHED
+
+				// next, work out if the job is a retryable failure or not
+				var didretry bool = false
+
+				if r.DidFail() {
+					if r.CanRetry() {
+						job := o.JobGet(r.Id)
+						if job.Scope == o.SCOPE_ONEOF {
+							// right, we're finally deep enough to work out what's going on!
+							o.JobDisqualifyPlayer(r.Id, client.Player)
+							if len(job.Players) >= 1 {
+								// still players left we can try?  then go for it!
+								CleanTask(task)
+								DispatchTask(task)
+								didretry = true
+							}
+						}
+					}
+				}
+				if !didretry {
+					// if we didn't retry, the task needs to be marked as finished.
+					task.State = o.TASK_FINISHED
+				}
+				// update the job state.
+				o.JobReviewState(r.Id)
+
 				client.pendingTasks[r.Id] = nil, false
 			}
 		}

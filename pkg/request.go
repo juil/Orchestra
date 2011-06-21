@@ -18,6 +18,15 @@ const (
 	// Task has finished and we have received a result.
 	TASK_FINISHED
 
+	// Job is pending resolution
+	JOB_PENDING
+	// Job has completed and has no failures.
+	JOB_SUCCESSFUL
+	// Job has completed and has mixed results.
+	JOB_FAILED_PARTIAL
+	// Job has completed and has completely failed.
+	JOB_FAILED
+
 	// Response states
 	RESP_RUNNING
 	RESP_FINISHED
@@ -186,6 +195,34 @@ func (resp *TaskResponse) IsFinished() bool {
 		fallthrough
 	case RESP_FAILED:
 		fallthrough
+	case RESP_FAILED_UNKNOWN_SCORE:
+		fallthrough
+	case RESP_FAILED_HOST_ERROR:
+		fallthrough
+	case RESP_FAILED_UNKNOWN:
+		return true
+	}
+	return false
+}
+
+// true if the task failed.  false otherwise.
+func (resp *TaskResponse) DidFail() bool {
+	// we actually test for the known successes or in progress
+	// states.  Everything else must be failure.
+	switch resp.State {
+	case RESP_RUNNING:
+		fallthrough
+	case RESP_FINISHED:
+		return false
+	}
+	return true
+}
+
+// true if the task can be tried.
+// precond:  DidFail is true, job is a ONE_OF job.
+// must return false otherwise.
+func (resp *TaskResponse) CanRetry() bool {
+	switch resp.State {
 	case RESP_FAILED_UNKNOWN_SCORE:
 		fallthrough
 	case RESP_FAILED_HOST_ERROR:

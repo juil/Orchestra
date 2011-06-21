@@ -14,12 +14,18 @@
 
 package orchestra
 
+import (
+	"sort"
+)
+
 const (
 	requestAddJob			= iota
 	requestGetJob
 	requestAddJobResult
 	requestGetJobResult
 	requestGetJobResultNames
+	requestDisqualifyPlayer
+	requestReviewJobStatus
 
 	requestQueueSize		= 10
 )
@@ -115,6 +121,30 @@ func JobGetResultNames(id uint64) (names []string) {
 	return resp.names
 }
 
+//  Disqualify a player from servicing a job
+func JobDisqualifyPlayer(id uint64, playername string) bool {
+	rr := newRequest(true)
+	rr.operation = requestDisqualifyPlayer
+	rr.id = id
+	rr.player = playername
+
+	chanRequest <- rr
+	resp := <- rr.responseChannel
+
+	return resp.success
+}
+
+func JobReviewState(id uint64) bool {
+	rr := newRequest(true)
+	rr.operation = requestReviewJobStatus
+	rr.id = id
+
+	chanRequest <- rr
+	resp := <- rr.responseChannel
+
+	return resp.success
+}
+
 func manageRegistry() {
 	jobRegister := make(map[uint64]*JobRequest)
 
@@ -124,6 +154,8 @@ func manageRegistry() {
 		switch (req.operation) {
 		case requestAddJob:
 			if nil != req.job {
+				// ensure that the players are sorted!
+				sort.SortStrings(req.job.Players)
 				jobRegister[req.job.Id] = req.job
 				resp.success = true
 			} else {
@@ -161,6 +193,72 @@ func manageRegistry() {
 				for k, _ := range job.results {
 					resp.names[idx] = k
 					idx++
+				}
+			}
+		case requestDisqualifyPlayer:
+			job, exists := jobRegister[req.id]
+			if exists {
+				idx := sort.Search(len(job.Players), func(idx int) bool { return job.Players[idx] >= req.player })
+				if (job.Players[idx] == req.player) {
+					resp.success = true
+					newplayers := make([]string, len(job.Players)-1)
+					copy(newplayers[0:idx], job.Players[0:idx])
+					copy(newplayers[idx:len(job.Players)-1], job.Players[idx+1:len(job.Players)])
+					job.Players = newplayers
+				} else {
+					resp.success = false
+				}
+			} else {
+				resp.success = false
+			}
+		case requestReviewJobStatus:
+			job, exists := jobRegister[req.id]
+			resp.success = exists
+			if exists {
+				switch job.Scope {
+				case SCOPE_ONEOF:
+					// look for a success (any success) in the responses
+					var success bool = false
+					for _, res := range job.results {
+						if res.State == RESP_FINISHED {
+							success = true
+							break
+						}
+					}
+					// update the job state based upon these findings
+					if success {
+						job.State = JOB_SUCCESSFUL
+					} else {
+						if len(job.Players) < 1 {
+							job.State = JOB_FAILED
+						} else {
+							job.State = JOB_PENDING
+						}
+					}
+				case SCOPE_ALLOF:
+					var success int = 0
+					var failed  int = 0
+
+					for pidx := range job.Players {
+						p := job.Players[pidx]
+						resp, exists := job.results[p]
+						if exists {
+							if resp.DidFail() {
+								failed++
+							} else if resp.State == RESP_FINISHED {
+								success++
+							}
+						}
+					}
+					if (success + failed) < len(job.Players) {
+						job.State = JOB_PENDING
+					} else if success == len(job.Players) {
+						job.State = JOB_SUCCESSFUL
+					} else if failed == len(job.Players) {
+						job.State = JOB_FAILED
+					} else {
+						job.State = JOB_FAILED_PARTIAL
+					}
 				}
 			}
 		}
