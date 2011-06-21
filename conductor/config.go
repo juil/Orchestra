@@ -6,32 +6,13 @@ import (
 	"bufio"
 	o "orchestra"
 	"strings"
-	"github.com/kless/goconfig/config"
 )
-
-var	conf	*config.Config = nil
-
-func init() {
-	resetConfig()
-}
-
-func resetConfig() {
-	conf = config.NewDefault()
-	conf.AddSection("Conductor")
-	conf.AddOption("Conductor", "playerfile", "players")
-	conf.AddOption("Conductor", "bindaddress", "")
-	conf.AddOption("Conductor", "private_key", "conductor_key.pem")
-	conf.AddOption("Conductor", "certificate", "conductor_crt.pem")
-}
-
 
 func pathFor(shortname string) (fullpath string) {
 	return path.Clean(path.Join(*ConfigDirectory, shortname))
 }
 
 func ConfigLoad() {
-	resetConfig()
-
 	pfh, err := os.Open(pathFor("players"))
 	o.MightFail("Couldn't open \"players\"", err)
 
