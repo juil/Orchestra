@@ -30,7 +30,7 @@ func signalHandler() {
 		switch int(ux) {
 		case syscall.SIGHUP:
 			o.Warn("Reloading Configuration")
-			//FIXME: Reload Config
+			ConfigLoad()
 		case syscall.SIGINT:
 			fmt.Fprintln(os.Stderr, "Interrupt Received - Terminating")
 			//FIXME: Gentle Shutdown
