@@ -30,19 +30,19 @@ Response:
 GET STATUS:
 Request:
 - dict:
-  - 'op': 'status'
-  - 'id': jobid
+  - 'Op': 'status'
+  - 'Id': jobid
 
 Response:
 - array:
 [error, dict]
 
 dict is:
-- 'status': aggregated result "OK/Failure"
-- 'players': dict - individual results
+- 'Status': aggregated result "OK/Failure"
+- 'Players': dict - individual results
   - hostname: dict
-    - 'status': individual OK/Failure
-    - 'response': dict
+    - 'Status': individual OK/Failure
+    - 'Response': dict
 
 error is 'OK' if successful.  jobid is the JobID if sucessful.
 

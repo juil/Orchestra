@@ -19,6 +19,30 @@ type GenericJsonRequest struct {
 	Id		*uint64
 }
 
+type JsonPlayerStatus struct {
+	Status		string
+	Response	map[string]string
+}
+
+type JsonStatusResponse struct {
+	Status		string
+	Players		map[string]*JsonPlayerStatus
+}
+
+func NewJsonStatusResponse() (jsr *JsonStatusResponse) {
+	jsr = new(JsonStatusResponse)
+	jsr.Players = make(map[string]*JsonPlayerStatus)
+	
+	return jsr
+}
+
+func NewJsonPlayerStatus() (jps *JsonPlayerStatus) {
+	jps = new(JsonPlayerStatus)
+	jps.Response = make(map[string]string)
+
+	return jps	
+}
+
 func handleAudienceRequest(c net.Conn) {
 	defer c.Close()
 
@@ -41,6 +65,59 @@ func handleAudienceRequest(c net.Conn) {
 	}
 	switch *(outobj.Op) {
 	case "status":
+		if nil == outobj.Id {
+			o.Warn("Malformed Status message talking to audience. Missing Job ID")
+			return
+		}
+		job := o.JobGet(*outobj.Id)
+		jresp := new([2]interface{})
+		if nil != job {
+			jresp[0] = "OK"
+			iresp := NewJsonStatusResponse()
+			switch job.State {
+			case o.JOB_PENDING:
+				iresp.Status = "PENDING"
+			case o.JOB_SUCCESSFUL:
+				iresp.Status = "OK"
+			case o.JOB_FAILED_PARTIAL:
+				iresp.Status = "PARTIAL_FAIL"
+			case o.JOB_FAILED:
+				iresp.Status = "FAIL"
+			default:
+				o.Fail("Blargh.  %d is an unknown job state!", job.State)
+			}
+			resnames := o.JobGetResultNames(*outobj.Id)
+			for i := range resnames {
+				tr := o.JobGetResult(*outobj.Id, resnames[i])
+				if nil != tr {
+					presp := NewJsonPlayerStatus()
+					switch tr.State {
+					case o.RESP_RUNNING:
+						presp.Status = "PENDING"
+					case o.RESP_FINISHED:
+						presp.Status = "OK"
+					case o.RESP_FAILED:
+						presp.Status = "FAIL"
+					case o.RESP_FAILED_UNKNOWN_SCORE:
+						presp.Status = "UNK_SCORE"
+					case o.RESP_FAILED_HOST_ERROR:
+						presp.Status = "HOST_ERROR"
+					case o.RESP_FAILED_UNKNOWN:
+						presp.Status = "UNKNOWN_FAILURE"
+					}
+					for k,v:=range(tr.Response) {
+						presp.Response[k] = v
+					}
+					iresp.Players[resnames[i]] = presp
+				}
+		
+			}
+			jresp[1] = iresp
+		} else {
+			jresp[0] = "Error"
+			jresp[1] = nil
+		}
+		enc.Encode(jresp)
 		o.Warn("Status...")
 	case "queue":
 		if nil == outobj.Score {

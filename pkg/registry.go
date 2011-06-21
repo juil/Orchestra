@@ -145,6 +145,55 @@ func JobReviewState(id uint64) bool {
 	return resp.success
 }
 
+// Ugh.
+func (job *JobRequest) updateState() {
+	switch job.Scope {
+	case SCOPE_ONEOF:
+		// look for a success (any success) in the responses
+		var success bool = false
+		for _, res := range job.results {
+			if res.State == RESP_FINISHED {
+				success = true
+				break
+			}
+		}
+		// update the job state based upon these findings
+		if success {
+			job.State = JOB_SUCCESSFUL
+		} else {
+			if len(job.Players) < 1 {
+				job.State = JOB_FAILED
+			} else {
+				job.State = JOB_PENDING
+			}
+		}
+	case SCOPE_ALLOF:
+		var success int = 0
+		var failed  int = 0
+		
+		for pidx := range job.Players {
+			p := job.Players[pidx]
+			resp, exists := job.results[p]
+			if exists {
+				if resp.DidFail() {
+					failed++
+				} else if resp.State == RESP_FINISHED {
+					success++
+				}
+			}
+		}
+		if (success + failed) < len(job.Players) {
+			job.State = JOB_PENDING
+		} else if success == len(job.Players) {
+			job.State = JOB_SUCCESSFUL
+		} else if failed == len(job.Players) {
+			job.State = JOB_FAILED
+		} else {
+			job.State = JOB_FAILED_PARTIAL
+		}
+	}
+}
+
 func manageRegistry() {
 	jobRegister := make(map[uint64]*JobRequest)
 
@@ -156,6 +205,9 @@ func manageRegistry() {
 			if nil != req.job {
 				// ensure that the players are sorted!
 				sort.SortStrings(req.job.Players)
+				// update the state
+				req.job.updateState()
+				// and register the job
 				jobRegister[req.job.Id] = req.job
 				resp.success = true
 			} else {
@@ -215,51 +267,7 @@ func manageRegistry() {
 			job, exists := jobRegister[req.id]
 			resp.success = exists
 			if exists {
-				switch job.Scope {
-				case SCOPE_ONEOF:
-					// look for a success (any success) in the responses
-					var success bool = false
-					for _, res := range job.results {
-						if res.State == RESP_FINISHED {
-							success = true
-							break
-						}
-					}
-					// update the job state based upon these findings
-					if success {
-						job.State = JOB_SUCCESSFUL
-					} else {
-						if len(job.Players) < 1 {
-							job.State = JOB_FAILED
-						} else {
-							job.State = JOB_PENDING
-						}
-					}
-				case SCOPE_ALLOF:
-					var success int = 0
-					var failed  int = 0
-
-					for pidx := range job.Players {
-						p := job.Players[pidx]
-						resp, exists := job.results[p]
-						if exists {
-							if resp.DidFail() {
-								failed++
-							} else if resp.State == RESP_FINISHED {
-								success++
-							}
-						}
-					}
-					if (success + failed) < len(job.Players) {
-						job.State = JOB_PENDING
-					} else if success == len(job.Players) {
-						job.State = JOB_SUCCESSFUL
-					} else if failed == len(job.Players) {
-						job.State = JOB_FAILED
-					} else {
-						job.State = JOB_FAILED_PARTIAL
-					}
-				}
+				job.updateState()
 			}
 		}
 		if req.responseChannel != nil {
