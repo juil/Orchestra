@@ -42,6 +42,8 @@ var (
 func regInternalAdd(hostname string) {
 	o.Warn("Registry: New Host \"%s\"", hostname)
 	clientList[hostname] = NewClientInfo()
+	// do this initialisation here since it'll help unmask sequencing errors
+	clientList[hostname].pendingTasks = make(map[uint64]*o.TaskRequest)
 	clientList[hostname].Player = hostname
 }
 

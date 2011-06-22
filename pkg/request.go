@@ -28,6 +28,7 @@ const (
 	JOB_FAILED
 
 	// Response states
+	RESP_PENDING	// internal state, not wire.
 	RESP_RUNNING
 	RESP_FINISHED
 	RESP_FAILED
@@ -51,6 +52,10 @@ type JobRequest struct {
 	Tasks		[]*TaskRequest
 	// These are private - you need to use the registry to access these
 	results		map[string]*TaskResponse
+
+	// these fields are used by the player only
+	MyResponse	*TaskResponse
+	RetryTime	int64
 }
 type TaskRequest struct {
 	Job		*JobRequest
@@ -188,6 +193,37 @@ func (task *TaskRequest) IsTarget(player string) (valid bool) {
 
 
 // Response related magic
+
+func NewTaskResponse() (resp *TaskResponse) {
+	resp = new(TaskResponse)
+
+	return resp
+}
+
+func (resp *TaskResponse) Encode() (ptr *ProtoTaskResponse) {
+	ptr = new(ProtoTaskResponse)
+	
+	switch resp.State {
+	case RESP_RUNNING:
+		ptr.Status = NewProtoTaskResponse_TaskStatus(ProtoTaskResponse_JOB_INPROGRESS)
+	case RESP_FINISHED:
+		ptr.Status = NewProtoTaskResponse_TaskStatus(ProtoTaskResponse_JOB_SUCCESS)
+	case RESP_FAILED:
+		ptr.Status = NewProtoTaskResponse_TaskStatus(ProtoTaskResponse_JOB_FAILED)
+	case RESP_FAILED_UNKNOWN_SCORE:
+		ptr.Status = NewProtoTaskResponse_TaskStatus(ProtoTaskResponse_JOB_UNKNOWN)
+	case RESP_FAILED_HOST_ERROR:
+		ptr.Status = NewProtoTaskResponse_TaskStatus(ProtoTaskResponse_JOB_HOST_FAILURE)
+	case RESP_FAILED_UNKNOWN:
+		ptr.Status = NewProtoTaskResponse_TaskStatus(ProtoTaskResponse_JOB_UNKNOWN_FAILURE)
+	}
+	ptr.Id = new(uint64)
+	*ptr.Id = resp.Id
+	ptr.Response = jobParametersFromMap(resp.Response)
+
+	return ptr
+}
+
 
 func (resp *TaskResponse) IsFinished() bool {
 	switch resp.State {

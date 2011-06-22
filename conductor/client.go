@@ -86,7 +86,6 @@ func (client *ClientInfo) GotTask(task *o.TaskRequest) {
 		/* this is a new task.  We should send it straight */
 		task.Player = client.Player
 		task.State = o.TASK_PENDINGRESULT
-
 		client.pendingTasks[task.Job.Id] = task
 		client.SendTask(task)
 	case o.TASK_FINISHED:

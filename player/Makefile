@@ -7,5 +7,6 @@ LDIMPORTS=-L../pkg/_obj
 
 GOFILES=\
 	player.go\
+	scores.go\
 
 include $(GOROOT)/src/Make.cmd
