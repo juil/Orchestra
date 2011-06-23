@@ -5,6 +5,8 @@ import (
 	"os"
 	"net"
 	"log"
+	"fmt"
+	"runtime/debug"
 )
 
 const (
@@ -24,6 +26,16 @@ func MightFail(mesg string, err os.Error) {
 	if (nil != err) {
 		Fail("%s: %s", mesg, err.String())
 	}
+}
+
+
+// Throws a generic assertion error, stacktraces, dies.
+// only really to be used where the runtime-time configuration
+// fucks up internally, not for user induced errors.
+func Assert(mesg string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, mesg, args...)
+	debug.PrintStack()
+	os.Exit(1)
 }
 
 func ProbeHostname() (fqdn string) {
