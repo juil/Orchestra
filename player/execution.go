@@ -4,6 +4,7 @@ package main
 
 import (
 	"os"
+	"bufio"
 	o "orchestra"
 )
 
@@ -14,6 +15,21 @@ func ExecuteJob(job *o.JobRequest) (complete chan int) {
 	return complete
 }
 
+func batchLogger(jobid uint64, errpipe *os.File) {
+	r := bufio.NewReader(errpipe)
+	for {
+		lb, _, err := r.ReadLine()
+		if err == os.EOF {
+			return
+		}
+		if err != nil {
+			o.Warn("executionLogger failed: %s", err)
+			return
+		}
+		o.Warn("JOB %d:%s", jobid, string(lb))
+	}
+}
+
 func doExecution(job *o.JobRequest, completionChannel chan int) {
 	// we must notify the parent when we exit.
 	defer func(c chan int) { c <- 1 }(completionChannel)
@@ -21,13 +37,11 @@ func doExecution(job *o.JobRequest, completionChannel chan int) {
 	si := NewScoreInterface(job)
 	if si == nil {
 		job.MyResponse.State = o.RESP_FAILED_HOST_ERROR
-		//FIXME: error the job properly.
 		return
 	}
 	score := Scores[job.Score]
 	if !si.Prepare() {
 		job.MyResponse.State = o.RESP_FAILED_HOST_ERROR
-		//FIXME: error the job properly.
 		return
 	}
 	defer si.Cleanup()
@@ -39,19 +53,32 @@ func doExecution(job *o.JobRequest, completionChannel chan int) {
 	for k, v := range eenv.Environment {
 		procenv.Env = append(procenv.Env, k+"="+v)
 	}
+
+	procenv.Files = make([]*os.File, 3)
+	lr, lw, err := os.Pipe()
+	o.MightFail("Couldn't create pipe", err)
+	procenv.Files[2] = lw
+	if nil != eenv.Files {
+		for i := range eenv.Files {
+			if i < 2 {
+				procenv.Files[i] = eenv.Files[i]
+			} else {
+				procenv.Files = append(procenv.Files, eenv.Files[i])
+			}
+		}
+	}	
 	var args []string = nil
 	args = append(args, eenv.Arguments...)
 
+	go batchLogger(job.Id, lr)
 	proc, err := os.StartProcess(score.Executable, args, procenv)
 	if err != nil {
 		job.MyResponse.State = o.RESP_FAILED_HOST_ERROR
-		//FIXME: error the job properly
 		return
 	}
 	wm, err := proc.Wait(0)
 	if err != nil {
-		job.MyResponse.State = o.RESP_FAILED_HOST_ERROR
-		//FIXME: error the job properly
+		job.MyResponse.State = o.RESP_FAILED_UNKNOWN
 		// Worse of all, we don't even know if we succeeded.
 		return
 	}
@@ -60,7 +87,7 @@ func doExecution(job *o.JobRequest, completionChannel chan int) {
 		return
 	}
 	if wm.WaitStatus.Signaled() {
-		job.MyResponse.State = o.RESP_FAILED
+		job.MyResponse.State = o.RESP_FAILED_UNKNOWN
 		return
 	}
 	if wm.WaitStatus.Exited() {

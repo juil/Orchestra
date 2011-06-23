@@ -8,6 +8,7 @@ package main
 
 import (
 	o "orchestra"
+	"os"
 )
 
 var (
@@ -17,6 +18,7 @@ var (
 type ExecutionEnvironment struct {
 	Environment	map[string]string
 	Arguments	[]string
+	Files		[]*os.File
 }
 
 func NewExecutionEnvironment() (ee *ExecutionEnvironment) {
