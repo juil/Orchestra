@@ -18,25 +18,28 @@ import (
 	"unicode"
 )
 
-const (
-	SI_FIFO		= iota
-	SI_ENV
-	// Score Flags
-	SF_SETUID	= 1<<0
-	SF_SETGID	= 1<<1
-)
-
 type ScoreInfo struct {
 	Name		string
 	Executable	string
+	InitialPwd	string
+	InitialEnv	map[string]string
 
-	Interface	int
+	Interface	string
 }
+
+type ScoreExecution struct {
+	Score	*ScoreInfo
+	Job	*o.JobRequest
+}
+	
 
 func NewScoreInfo() (si *ScoreInfo) {
 	si = new (ScoreInfo)
 	// establish defaults
-	si.Interface = SI_ENV
+	si.Interface = "env"
+
+	si.InitialEnv = make(map[string]string)
+	si.InitialEnv["PATH"] = "/usr/bin:/bin"
 
 	return si
 }
@@ -92,14 +95,10 @@ func ScoreConfigure(si *ScoreInfo, r io.Reader) {
 			if len(bits) != 2 {
 				o.Fail("Malformed score configuration on line %d: too many arguments to interface", linenum)
 			}
-			switch bits[1] {
-			case "env":
-				si.Interface = SI_ENV
-			case "fifo":
-				si.Interface = SI_FIFO
-			default:
+			if !HasInterface(bits[1]) {
 				o.Fail("Malformed score configuration on line %d: Unknown interface type %s", linenum, bits[1])
 			}
+			si.Interface = bits[1]
 		default:
 			o.Fail("Unknown configuration directive %s on line %d", bits[0], linenum)
 		}
