@@ -66,7 +66,7 @@ func NewScoreInterface(job *o.JobRequest) (iface ScoreInterface) {
 	if !exists {
 		return nil
 	}
-	if !HasInterface(job.Score) {
+	if !HasInterface(score.Interface) {
 		return nil
 	}
 	ifinit, _ := interfaces[score.Interface]

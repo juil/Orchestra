@@ -13,8 +13,8 @@ import (
 
 const (
 //	KeepaliveDelay =	300e9 // once every 5 minutes.
-	KeepaliveDelay =	10e9 // once every 10 seconds for debug
-	RetryDelay     =  	5e9 // retry every 5 seconds.  Must be smaller than the keepalive to avoid channel race.
+	KeepaliveDelay =	30e9 // once every 30 seconds for debug
+	RetryDelay     =  	10e9 // retry every 10 seconds.  Must be smaller than the keepalive to avoid channel race.
 	OutputQueueDepth =	10 // This needs to be large enough that we don't deadlock on ourself.
 )
 
@@ -166,6 +166,7 @@ func handleResult(client *ClientInfo, message interface{}){
 	if r.IsFinished() {
 		job := o.JobGet(r.Id)
 		if nil == job {
+			o.Warn("Client %s: NAcking for Job %d - couldn't find job data.", client.Name(), r.Id)
 			nack := o.MakeNack(r.Id)
 			client.sendNow(nack)
 		} else {
@@ -189,6 +190,7 @@ func handleResult(client *ClientInfo, message interface{}){
 				var didretry bool = false
 
 				if r.DidFail() {
+					o.Warn("Client %s reports failure for Job %d", client.Name(), r.Id)
 					if r.CanRetry() {
 						job := o.JobGet(r.Id)
 						if job.Scope == o.SCOPE_ONEOF {

@@ -23,15 +23,16 @@ const (
 )
 
 var (
-	masterHostname = flag.String("master", "conductor", "Hostname of the Conductor")
-	localHostname  = flag.String("hostname", "", "My Hostname (defaults to autoprobing)")
-	masterPort     = flag.Int("port", o.DefaultMasterPort, "Port to contact conductor on")
-	ScoreDirectory = flag.String("score-dir", "/usr/lib/orchestra/scores", "Path for the Directory containing valid scores")
- 	receivedMessage = make(chan *o.WirePkt)
-	lostConnection = make(chan int)
-	pendingQueue	= list.New()
+	masterHostname 		= flag.String("master", "conductor", "Hostname of the Conductor")
+	localHostname  		= flag.String("hostname", "", "My Hostname (defaults to autoprobing)")
+	masterPort     		= flag.Int("port", o.DefaultMasterPort, "Port to contact conductor on")
+	ScoreDirectory 		= flag.String("score-dir", "/usr/lib/orchestra/scores", "Path for the Directory containing valid scores")
+ 	receivedMessage 	= make(chan *o.WirePkt)
+	lostConnection 		= make(chan int)
+	pendingQueue		= list.New()
 	unacknowledgedQueue	= list.New()
-	newConnection	= make(chan net.Conn)
+	newConnection		= make(chan net.Conn)
+	pendingTaskRequest	= false
 )
 
 func getNextPendingJob() (job *o.JobRequest) {
@@ -44,6 +45,7 @@ func getNextPendingJob() (job *o.JobRequest) {
 }
 
 func appendPendingJob(job *o.JobRequest) {
+	pendingTaskRequest = false
 	pendingQueue.PushBack(job)
 }
 
@@ -133,6 +135,7 @@ func handleRequest(c net.Conn, message interface{}) {
 		// check to see if we have the score
 		// add the Job to our Registry
 		job.MyResponse = o.NewTaskResponse()
+		job.MyResponse.Id = job.Id
 		job.MyResponse.State = o.RESP_PENDING		
 		o.JobAdd(job)
 		o.Warn("Added Job %d to our local registry", job.Id)
@@ -164,8 +167,6 @@ var dispatcher	= map[uint8] func(net.Conn, interface{}) {
 	o.TypeTaskResponse:	handleIllegal,
 }
 
-
-
 func connectMe() {
 	var backOff int64 = InitialReconnectDelay
 	for {
@@ -192,12 +193,10 @@ func connectMe() {
 	}
 }
 
-
 func ProcessingLoop() {
 	var	conn			net.Conn		= nil
 	var     nextRetryResp		*o.TaskResponse 	= nil
 	var	jobCompletionChan	<-chan *o.TaskResponse	= nil
-	var	pendingTaskRequest	bool			= false
 	// kick off a new connection attempt.
 	go connectMe()
 
@@ -239,6 +238,7 @@ func ProcessingLoop() {
 		select {
 		// Currently executing job finishes.
 		case newresp := <- jobCompletionChan:
+			o.Warn("Job %d completed with State %d\n", newresp.Id, newresp.State)
 			// preemptively set a retrytime.
 			newresp.RetryTime = time.Nanoseconds()
 			// ENOCONN - sub it in as our next retryresponse, and prepend the old one onto the queue.
