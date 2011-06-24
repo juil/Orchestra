@@ -42,9 +42,9 @@ type registryRequest struct {
 
 type registryResponse struct {
 	success			bool
-	job			*JobRequest
 	tresp			*TaskResponse
 	names			[]string
+	jobs			[]*JobRequest
 }
 	
 var chanRequest = make(chan *registryRequest, requestQueueSize)
@@ -81,7 +81,7 @@ func JobGet(id uint64) *JobRequest {
 
 	chanRequest <- rr
 	resp := <- rr.responseChannel
-	return resp.job
+	return resp.jobs[0]
 }
 
 // Attach a result to a Job in the Registry
@@ -217,7 +217,8 @@ func manageRegistry() {
 			job, exists := jobRegister[req.id]
 			resp.success = exists
 			if exists {
-				resp.job = job
+				resp.jobs = make([]*JobRequest, 1)
+				resp.jobs[0] = job
 			}
 		case requestAddJobResult:
 			job, exists := jobRegister[req.tresp.Id]

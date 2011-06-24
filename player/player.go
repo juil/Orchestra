@@ -14,7 +14,10 @@ import (
 )
 
 const (
-	KeepaliveDelay = 5e9
+	InitialReconnectDelay		= 5e9
+	MaximumReconnectDelay		= 300e9
+	ReconnectDelayScale		= 2
+	KeepaliveDelay 			= 30e9
 )
 
 var (
@@ -24,9 +27,15 @@ var (
 	ScoreDirectory = flag.String("score-dir", "/usr/lib/orchestra/scores", "Path for the Directory containing valid scores")
  	receivedMessage = make(chan *o.WirePkt)
 	lostConnection = make(chan int)
+	pendingQueue	[]*o.JobRequest
+	newConnection	= make(chan net.Conn)
 )
 
 func Reader(conn net.Conn) {
+	defer func(l chan int) {
+		l <- 1
+	}(lostConnection)
+
 	for {
 		pkt, err := o.Receive(conn)
 		if (err != nil) {
@@ -34,9 +43,7 @@ func Reader(conn net.Conn) {
 			break;
 		}
 		receivedMessage <- pkt
-	}
-	lostConnection <- 1
-	
+	}	
 }
 
 func handleNop(c net.Conn, message interface{}) {
@@ -91,60 +98,88 @@ var dispatcher	= map[uint8] func(net.Conn, interface{}) {
 	o.TypeTaskResponse:	handleIllegal,
 }
 
-func ProcessingLoop() {
-	tconf := &tls.Config{
-	}
-	raddr := fmt.Sprintf("%s:%d", *masterHostname, *masterPort)
 
+
+func connectMe() {
+	var backOff int64 = InitialReconnectDelay
 	for {
+		tconf := &tls.Config{
+		}
+		raddr := fmt.Sprintf("%s:%d", *masterHostname, *masterPort)
 		o.Warn("Connecting to %s", raddr)
 		conn, err := tls.Dial("tcp", raddr, tconf)
+		
 		if err != nil {
 			o.Warn("Couldn't connect to master: %s", err)
-			o.Warn("Sleeping for 30 seconds")
-			err := time.Sleep(30 * 10e9)
+			o.Warn("Sleeping for %d seconds", backOff/1e9)
+			err := time.Sleep(backOff)
 			o.MightFail("Couldn't Sleep",err)
-		} else {
-			var pendingTaskRequest = false
-			go Reader(conn)
 
+			backOff *= ReconnectDelayScale
+			if backOff > MaximumReconnectDelay {
+				backOff = MaximumReconnectDelay
+			}
+		} else {
+			newConnection <- conn
+			return
+		}
+	}
+}
+
+
+func ProcessingLoop() {
+	var	conn	net.Conn = nil
+
+	// kick off a new connection attempt.
+	go connectMe()
+	for {		
+		var pendingTaskRequest = false
+		select {
+		case newconn := <-newConnection:
+			if conn != nil {
+				conn.Close()
+			}
+			conn = newconn
+
+			// start the reader
+			go Reader(conn)
+		
 			/* Introduce ourself */
 			p := o.MakeIdentifyClient(*localHostname)
 			p.Send(conn)
-
-			loop := true
-			for loop {
-				o.Warn("Waiting for some action!")
-				select {
-				case <-lostConnection:
-					o.Warn("Lost Connection to Master")
-					loop = false
-				case p := <-receivedMessage:
-					var upkt interface{} = nil
-					if p.Length > 0 {
-						var err os.Error
-						upkt, err = p.Decode()
-						o.MightFail("Couldn't decode packet from master", err)
-					}
-					handler, exists := dispatcher[p.Type]
-					if (exists) {
-						handler(conn, upkt)
-					} else {
-						o.Fail("Unhandled Pkt Type %d", p.Type)
-					}
-				case <-time.After(KeepaliveDelay):
-					if !pendingTaskRequest {
-						o.Warn("Asking for trouble")
-						p := o.MakeReadyForTask()
-						p.Send(conn)
-						o.Warn("Sent Request for trouble")
-						pendingTaskRequest = true
-					} else {
-						o.Warn("Sending Nop")
-						p := o.MakeNop()
-						p.Send(conn)
-					}
-				}
+		case <-lostConnection:
+			o.Warn("Lost Connection to Master")
+			conn.Close()
+			conn = nil
+			// restart the connection attempts
+			go connectMe()
+		case p := <-receivedMessage:
+			var upkt interface{} = nil
+			if p.Length > 0 {
+				var err os.Error
+				upkt, err = p.Decode()
+				o.MightFail("Couldn't decode packet from master", err)
+			}
+			handler, exists := dispatcher[p.Type]
+			if (exists) {
+				handler(conn, upkt)
+			} else {
+				o.Fail("Unhandled Pkt Type %d", p.Type)
+			}
+		case <-time.After(KeepaliveDelay):
+			if conn == nil {
+				break
+			}
+			if !pendingTaskRequest {
+				o.Warn("Asking for trouble")
+				p := o.MakeReadyForTask()
+				p.Send(conn)
+				o.Warn("Sent Request for trouble")
+				pendingTaskRequest = true
+			} else {
+				o.Warn("Sending Nop")
+				p := o.MakeNop()
+				p.Send(conn)
 			}
 		}
 	}
