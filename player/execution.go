@@ -8,8 +8,8 @@ import (
 	o "orchestra"
 )
 
-func ExecuteJob(job *o.JobRequest) (complete chan int) {
-	complete  = make(chan int, 1)
+func ExecuteJob(job *o.JobRequest) <-chan *o.TaskResponse {
+	complete  := make(chan *o.TaskResponse, 1)
 	go doExecution(job, complete)
 
 	return complete
@@ -30,9 +30,9 @@ func batchLogger(jobid uint64, errpipe *os.File) {
 	}
 }
 
-func doExecution(job *o.JobRequest, completionChannel chan int) {
+func doExecution(job *o.JobRequest, completionChannel chan<- *o.TaskResponse) {
 	// we must notify the parent when we exit.
-	defer func(c chan int) { c <- 1 }(completionChannel)
+	defer func(c chan<- *o.TaskResponse, job *o.JobRequest) { c <- job.MyResponse }(completionChannel,job)
 
 	si := NewScoreInterface(job)
 	if si == nil {

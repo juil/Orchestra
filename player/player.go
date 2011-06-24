@@ -11,6 +11,7 @@ import (
 	"crypto/tls"
 	"net"
 	"time"
+	"container/list"
 )
 
 const (
@@ -18,6 +19,7 @@ const (
 	MaximumReconnectDelay		= 300e9
 	ReconnectDelayScale		= 2
 	KeepaliveDelay 			= 30e9
+	RetryDelay			= 5e9
 )
 
 var (
@@ -27,9 +29,66 @@ var (
 	ScoreDirectory = flag.String("score-dir", "/usr/lib/orchestra/scores", "Path for the Directory containing valid scores")
  	receivedMessage = make(chan *o.WirePkt)
 	lostConnection = make(chan int)
-	pendingQueue	[]*o.JobRequest
+	pendingQueue	= list.New()
+	unacknowledgedQueue	= list.New()
 	newConnection	= make(chan net.Conn)
 )
+
+func getNextPendingJob() (job *o.JobRequest) {
+	e := pendingQueue.Front()
+	if e != nil {
+		job, _ = e.Value.(*o.JobRequest)
+		pendingQueue.Remove(e)
+	}
+	return job
+}
+
+func appendPendingJob(job *o.JobRequest) {
+	pendingQueue.PushBack(job)
+}
+
+func getNextUnacknowledgedResponse() (resp *o.TaskResponse) {
+	e := unacknowledgedQueue.Front()
+	if e != nil {
+		resp, _ = e.Value.(*o.TaskResponse)
+		unacknowledgedQueue.Remove(e)
+	}
+	return resp
+}
+
+func appendUnacknowledgedResponse(resp *o.TaskResponse) {
+	resp.RetryTime = time.Nanoseconds() + RetryDelay
+	unacknowledgedQueue.PushBack(resp)
+}
+
+func acknowledgeResponse(jobid uint64) {
+	for e := unacknowledgedQueue.Front(); e != nil; e = e.Next() {
+		resp := e.Value.(*o.TaskResponse)
+		if resp.Id == jobid {
+			unacknowledgedQueue.Remove(e)
+		}
+	}
+}
+
+func sendResponse(c net.Conn, resp *o.TaskResponse) {
+	//FIXME: update retry time on Response
+	ptr := resp.Encode()
+	p, err := o.Encode(ptr)
+	o.MightFail("Failed to encode response", err)
+	_, err = p.Send(c)
+	if err != nil {
+		o.Warn("Transmission error: %s", err)
+		c.Close()
+		prequeueResponse(resp)
+		lostConnection <- 1
+	} else {
+		appendUnacknowledgedResponse(resp)
+	}
+}
+
+func prequeueResponse(resp *o.TaskResponse) {
+	unacknowledgedQueue.PushFront(resp)
+}
 
 func Reader(conn net.Conn) {
 	defer func(l chan int) {
@@ -66,24 +125,17 @@ func handleRequest(c net.Conn, message interface{}) {
 	existing := o.JobGet(job.Id)
 	if nil != existing {
 		if (existing.MyResponse.IsFinished()) {
-			//FIXME: update retry time on Response
-			ptr := existing.MyResponse.Encode()
-			p, err := o.Encode(ptr)
-			o.MightFail("Failed to encode response", err)
-			_, err = p.Send(c)
-			if err != nil {
-				o.Warn("Transmission error: %s", err)
-				c.Close()
-				lostConnection <- 1
-			}
+			sendResponse(c, existing.MyResponse)
 		}
 	} else {
-		/* check to see if we have the score */		
-		/* add the Job to our Registry */
+		// check to see if we have the score
+		// add the Job to our Registry
 		job.MyResponse = o.NewTaskResponse()
 		job.MyResponse.State = o.RESP_PENDING		
 		o.JobAdd(job)
 		o.Warn("Added Job %d to our local registry", job.Id)
+		// and then push it onto the pending job list so we know it needs actioning.
+		appendPendingJob(job)
 	}
 }
 
@@ -128,13 +180,68 @@ func connectMe() {
 
 
 func ProcessingLoop() {
-	var	conn	net.Conn = nil
-
+	var	conn			net.Conn		= nil
+	var     nextRetryResp		*o.TaskResponse 	= nil
+	var	jobCompletionChan	<-chan *o.TaskResponse	= nil
+	var	pendingTaskRequest	bool			= false
 	// kick off a new connection attempt.
 	go connectMe()
-	for {		
-		var pendingTaskRequest = false
+
+	// and this is where we spin!
+	for {	
+		var retryDelay int64 = 0
+		var retryChan  <-chan int64 = nil
+
+		if conn != nil {
+			for nextRetryResp == nil {
+				nextRetryResp = getNextUnacknowledgedResponse()
+				if nil == nextRetryResp {
+					break
+				}
+				retryDelay = nextRetryResp.RetryTime - time.Nanoseconds()
+				if retryDelay < 0 {
+					sendResponse(conn, nextRetryResp)
+					nextRetryResp = nil
+				}
+			}
+			if nextRetryResp != nil {
+				retryChan = time.After(retryDelay)
+			}
+		}
+		if jobCompletionChan == nil {
+			nextJob := getNextPendingJob()
+			if nextJob != nil {
+				jobCompletionChan = ExecuteJob(nextJob)
+			} else {
+				if conn != nil && !pendingTaskRequest {
+					o.Warn("Asking for trouble")
+					p := o.MakeReadyForTask()
+					p.Send(conn)
+					o.Warn("Sent Request for trouble")
+					pendingTaskRequest = true
+				}
+			}
+		}
 		select {
+		// Currently executing job finishes.
+		case newresp := <- jobCompletionChan:
+			// preemptively set a retrytime.
+			newresp.RetryTime = time.Nanoseconds()
+			// ENOCONN - sub it in as our next retryresponse, and prepend the old one onto the queue.
+			if nil == conn {
+				if nil != nextRetryResp {
+					prequeueResponse(nextRetryResp)
+				}
+				nextRetryResp = newresp
+			} else {
+				sendResponse(conn, newresp)
+			}
+			jobCompletionChan = nil
+		// If the current unacknowledged response needs a retry, send it.
+		case <-retryChan:
+			sendResponse(conn, nextRetryResp)
+			nextRetryResp = nil
+		// New connection.  Set up the receiver thread and Introduce ourselves.
 		case newconn := <-newConnection:
 			if conn != nil {
 				conn.Close()
@@ -147,12 +254,14 @@ func ProcessingLoop() {
 			/* Introduce ourself */
 			p := o.MakeIdentifyClient(*localHostname)
 			p.Send(conn)
+		// Lost connection.  Shut downt he connection.
 		case <-lostConnection:
 			o.Warn("Lost Connection to Master")
 			conn.Close()
 			conn = nil
 			// restart the connection attempts
 			go connectMe()
+		// Message received from master.  Decode and action.
 		case p := <-receivedMessage:
 			var upkt interface{} = nil
 			if p.Length > 0 {
@@ -166,21 +275,14 @@ func ProcessingLoop() {
 			} else {
 				o.Fail("Unhandled Pkt Type %d", p.Type)
 			}
+		// Keepalive delay expired.  Send Nop.
 		case <-time.After(KeepaliveDelay):
 			if conn == nil {
 				break
 			}
-			if !pendingTaskRequest {
-				o.Warn("Asking for trouble")
-				p := o.MakeReadyForTask()
-				p.Send(conn)
-				o.Warn("Sent Request for trouble")
-				pendingTaskRequest = true
-			} else {
-				o.Warn("Sending Nop")
-				p := o.MakeNop()
-				p.Send(conn)
-			}
+			o.Warn("Sending Nop")
+			p := o.MakeNop()
+			p.Send(conn)
 		}
 	}
 }

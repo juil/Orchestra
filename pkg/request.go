@@ -68,7 +68,6 @@ type TaskResponse struct {
 	Id		uint64
 	Response	map[string]string
 	// player only fields
-	Acknowledged	bool
 	RetryTime	int64
 }
 
