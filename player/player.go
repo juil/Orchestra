@@ -72,6 +72,7 @@ func acknowledgeResponse(jobid uint64) {
 
 func sendResponse(c net.Conn, resp *o.TaskResponse) {
 	//FIXME: update retry time on Response
+	o.Warn("Sending Response!")
 	ptr := resp.Encode()
 	p, err := o.Encode(ptr)
 	o.MightFail("Failed to encode response", err)
@@ -117,7 +118,7 @@ func handleRequest(c net.Conn, message interface{}) {
 	o.Warn("Request Recieved.  Decoding!")
 	ptr, ok := message.(*o.ProtoTaskRequest)
 	if !ok {
-		o.Fail("CC stuffed up - handleRequest got something that wasn't a ProtoTaskRequest.")
+		o.Assert("CC stuffed up - handleRequest got something that wasn't a ProtoTaskRequest.")
 	}
 	job := o.JobFromProto(ptr)
 	/* search the registry for the job */
@@ -125,6 +126,7 @@ func handleRequest(c net.Conn, message interface{}) {
 	existing := o.JobGet(job.Id)
 	if nil != existing {
 		if (existing.MyResponse.IsFinished()) {
+			o.Warn("job%d: Resending Response", job.Id)
 			sendResponse(c, existing.MyResponse)
 		}
 	} else {
@@ -139,10 +141,22 @@ func handleRequest(c net.Conn, message interface{}) {
 	}
 }
 
+func handleAck(c net.Conn, message interface{}) {
+	o.Warn("Ack Received")
+	ack, ok := message.(*o.ProtoAcknowledgement)
+	if !ok {
+		o.Assert("CC stuffed up - handleAck got something that wasn't a ProtoAcknowledgement.")
+	}
+	if ack.Id != nil {
+		acknowledgeResponse(*ack.Id)
+	}
+}
+
 
 var dispatcher	= map[uint8] func(net.Conn, interface{}) {
 	o.TypeNop:		handleNop,
 	o.TypeTaskRequest:	handleRequest,
+	o.TypeAcknowledgement:	handleAck,
 
 	/* P->C only messages, should never appear on the wire to us. */
 	o.TypeIdentifyClient:	handleIllegal,
@@ -232,8 +246,10 @@ func ProcessingLoop() {
 				if nil != nextRetryResp {
 					prequeueResponse(nextRetryResp)
 				}
+				o.Warn("job%d: Queuing Initial Response", newresp.Id)
 				nextRetryResp = newresp
 			} else {
+				o.Warn("job%d: Sending Initial Response", newresp.Id)
 				sendResponse(conn, newresp)
 			}
 			jobCompletionChan = nil
@@ -263,6 +279,11 @@ func ProcessingLoop() {
 			go connectMe()
 		// Message received from master.  Decode and action.
 		case p := <-receivedMessage:
+			// because the message could possibly be an ACK, push the next retry response back into the queue so acknowledge can find it.
+			if nil != nextRetryResp {
+				prequeueResponse(nextRetryResp)
+				nextRetryResp = nil
+			}
 			var upkt interface{} = nil
 			if p.Length > 0 {
 				var err os.Error

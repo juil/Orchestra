@@ -171,6 +171,7 @@ func handleResult(client *ClientInfo, message interface{}){
 		} else {
 			job := o.JobGet(r.Id)
 			if job != nil {
+				o.Warn("Got Response.  Acking.")
 				/* if the job exists, Ack it. */
 				ack := o.MakeAck(r.Id)
 				client.sendNow(ack)

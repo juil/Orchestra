@@ -81,6 +81,9 @@ func JobGet(id uint64) *JobRequest {
 
 	chanRequest <- rr
 	resp := <- rr.responseChannel
+	if resp.jobs == nil {
+		return nil
+	}
 	return resp.jobs[0]
 }
 
