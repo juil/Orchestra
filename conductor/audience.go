@@ -7,6 +7,7 @@ import (
 	"io"
 	"json"
 	"net"
+	"os"
 	o "orchestra"
 )
 
@@ -166,8 +167,7 @@ func handleAudienceRequest(c net.Conn) {
 	_ = enc
 }
 
-func NewAudienceListener(l net.Listener) {
-	defer l.Close()
+func AudienceListener(l net.Listener) {
 	for {
 		c, err := l.Accept()
 		if err != nil {
@@ -178,10 +178,26 @@ func NewAudienceListener(l net.Listener) {
 	}
 }
 
-func StartAudienceSock() {
-	laddr, err := net.ResolveUnixAddr("unix", *AudienceSock)
+func UnixAudienceListener(sockaddr string) {
+	fi, err := os.Stat(sockaddr)
+	if err == nil {
+		if fi.IsSocket() {
+			o.Warn("Removing stale socket at %s", sockaddr)
+			os.Remove(sockaddr)
+		} else {
+			o.Fail("%s exists and is not a socket", sockaddr)
+		}
+	}
+	laddr, err := net.ResolveUnixAddr("unix", sockaddr)
 	o.MightFail("Couldn't resolve audience socket address", err)
 	l, err := net.ListenUnix("unix", laddr)
 	o.MightFail("Couldn't start audience unixsock listener", err)
-	go NewAudienceListener(l)	
+	// make sure we clean up the unix socket when we die.
+	defer l.Close()
+	defer os.Remove(sockaddr)
+	AudienceListener(l)	
+}
+
+func StartAudienceSock() {
+	go UnixAudienceListener(*AudienceSock)
 }

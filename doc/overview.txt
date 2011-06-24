@@ -1,0 +1,119 @@
+A 5 Minute Guide to Orcehstra
+-----------------------------
+
+What is it?
+===========
+
+Orchestra is a series of tools for Getting Shit Run.
+
+It consists of a Conductor, which is the coordinating process, and
+Players, which are the actual daemons running on nodes to do the work.
+
+To prevent arbitrary execution of code, Players can only execute
+predefined scores which have to be installed on them seperately.  You
+can use puppet, cfengine or other configuration management system to
+do this.
+
+Canonically, entities requesting work to be done are known as the
+Audience.
+
+
+Invoking Work
+=============
+
+To get work done, you have to submit a request.  The sample Audience
+tools 'submitjob' and 'getstatus' handle this.
+
+When you submit a job, you specify the Score by it's name, and a set
+of key/value pairs that are passed to the score as arguments.
+
+You also specify a scope and target specification which informs the
+Conductor where you want the job run.  The valid scopes are 'all of'
+and 'one of', and the targets must be a list of hostnames known to the
+conductor.
+
+When this is submitted to the conductor, the conductor will attempt to
+schedule the work as soon as possible.
+
+Writing Scores
+==============
+
+Scores are any legal executable accompanied by a configuration file.
+
+They live in the scores directory.  Their filename is used as the
+score name.
+
+The configuration file should have the same name postpended by ".conf".
+
+At the moment, only a single directive is suported: 'interface', which
+sets which sets the IPC method for use between the player and the
+score.
+
+The only supported interface right now is 'env', which sets the
+parameters into the environment, with the key name prefixed by 'ORC_'.
+
+Scores should exit with status 0 to indicate success, and non 0 to
+indicate failure.
+
+
+Configuration
+=============
+
+Currently the bulk of conductor and player configuration takes place
+through command line arguments, exceptions are noted below.
+
+Basic help for the command line arguments can be retrieved by
+specifying "-help" on the command line.
+
+Conductor
+=========
+
+The conductor needs an x509 Cert/Key pair (as all communications takes
+place over TLS) and a player list.
+
+The player list is loaded out of the configuration directory from the
+file named 'players' and should be a text file with a hostname per
+line.  The conductor will reload this file if HUP'd.
+
+You can specify the configuration directory via the command line.
+
+Player
+======
+
+The scores are loaded from the score directory as specified on the
+command line.
+
+Individual scores are configured as noted above under "Writing Scores"
+
+Known Bugs
+==========
+
+Oh god, where do I start?
+
+ * Disconnect/Reconnect behaviour for players is not particualrly well
+   tested.
+
+ * Jobs will be left dangling in hell if a player is removed from the
+   conductor's configuration and the conductor HUP'd whilst there is
+   still work pending for that player.
+
+ * TLS isn't verified at all.
+
+ * There is currently no way for scores to send back a response.
+   Implementing a new interface type can fix this however.
+
+ * Commandline arguments suck - more configuration files needed.
+
+ * Only a tiny fraction of the intended score management stuff is
+   implemented at the moment, which makes this look like a very basic
+   remote execution agent, rather than the awesome, mcollective
+   slaying beast it should be.
+
+ * getstatus gets back a lot more information than it displays.
+
+ * There is absolutely no persistence of queue information anywhere
+   yet.  This is a high priority to fix, but has been omitted in order
+   to get a first cut working.
+
+ * No efficient 'wait for job' interface yet.
+
