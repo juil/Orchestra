@@ -1,6 +1,5 @@
 include $(GOROOT)/src/Make.inc
 
-TARGDIR=/usr/local/sbin
 TARG=submitjob
 
 GOFILES=\

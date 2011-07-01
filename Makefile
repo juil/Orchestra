@@ -36,3 +36,6 @@ install: install.dirs
 test:   test.dirs
 
 build:	build.dirs
+
+nuke:	nuke.dirs
+
