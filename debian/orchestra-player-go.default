@@ -1,0 +1,28 @@
+#
+# Defaults for orchestra-player-go
+#
+
+#
+# set ENABLED=yes to enable the player.
+#
+ENABLED=no
+
+# Force Hostname
+#
+# Set to explicitly set the hostname to use when requesting jobs from the
+# conductor.  (Recommended)
+#MY_HOSTNAME=
+
+# Score Directory
+#
+# Set to override from the default of /usr/lib/orchestra/scores
+#SCORE_DIR=/usr/lib/orchestra/scores
+
+# Master's Hostname
+#
+# Set to specify the hostname or IP address of the Conductor.
+#CONDUCTOR_ADDR=conductor
+
+# Extra arguments to pass when starting the player
+#
+#EXTRA_ARGS=

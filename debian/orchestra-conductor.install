@@ -1,0 +1,4 @@
+conductor/conductor	/usr/sbin
+getstatus/getstatus	/usr/bin
+submitjob/submitjob	/usr/bin
+debian/examples/players	/etc/conductor

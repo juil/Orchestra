@@ -1,0 +1,6 @@
+# /etc/conductor/players
+#
+# In this file you list the name of all servers you list the name of
+# all servers you're willing to arbitrate jobs for.
+#
+# empty lines and lines starting with '#' are ignored.

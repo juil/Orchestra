@@ -1,0 +1,24 @@
+#
+# Defaults for orchestra-conductor
+#
+
+#
+# set ENABLED=yes to enable the conductor.
+#
+ENABLED=yes
+
+# Path to the private keyfile to use as the local TLS key.
+TLS_KEY=/etc/ssl/private/ssl-cert-snakeoil.key
+
+# Path to the certificate to use as the server certificate
+TLS_CERT=/etc/ssl/private/ssl-cert-snakeoil.pem
+
+# Configuration Directory
+#
+# Set to override from the default of /etc/conductor
+#CONFIG_DIR=/etc/conductor
+
+# Bind Address
+#
+# Set to the local IP address to listen for players on.
+#BIND_ADDR=
