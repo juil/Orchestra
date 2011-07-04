@@ -11,7 +11,7 @@ ENABLED=yes
 TLS_KEY=/etc/ssl/private/ssl-cert-snakeoil.key
 
 # Path to the certificate to use as the server certificate
-TLS_CERT=/etc/ssl/private/ssl-cert-snakeoil.pem
+TLS_CERT=/etc/ssl/certs/ssl-cert-snakeoil.pem
 
 # Configuration Directory
 #

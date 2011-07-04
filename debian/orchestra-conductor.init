@@ -22,11 +22,11 @@ ENABLED=no
 BIND_ADDR=
 CONFIG_DIR=
 PIDFILE=/var/run/orchestra-conductor.pid
-TLS_KEY=/etc/conductor/conductor.key
-TLS_CERT=/etc/conductor/conductor.crt
+TLS_KEY=/etc/ssl/private/ssl-cert-snakeoil.key
+TLS_CERT=/etc/ssl/certs/ssl-cert-snakeoil.pem
 
 if test -f /etc/default/orchestra-conductor; then
-   . /etc/default/orcehstra-conductor
+   . /etc/default/orchestra-conductor
 fi
 
 . /lib/lsb/init-functions
@@ -40,7 +40,7 @@ CONDUCTOR_ARGS_FINAL="${EXTRA_ARGS} ${CONFIG_DIR:+-config-dir=${CONFIG_DIR}} ${T
 case "$1" in
     start)
 	log_daemon_msg "Starting the Conductor"
-	if start-stop-daemon --start --quiet --oknodo --background --pidfile "${PIDFILE}" --make-pidfile --exec "${CONDUCTOR}" -- ${CONDUCTOR_ARGS}; then
+	if start-stop-daemon --start --quiet --oknodo --background --pidfile "${PIDFILE}" --make-pidfile --exec "${CONDUCTOR}" -- ${CONDUCTOR_ARGS_FINAL}; then
 	    log_end_msg 0
 	else
 	    log_end_msg 1

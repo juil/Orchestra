@@ -23,7 +23,7 @@ type JobRequest struct {
 
 var (
 	AllOf	     = flag.Bool("all-of", false, "Send request to all named players")
-	AudienceSock = flag.String("audience-sock", "/var/run/orchestra/audience.sock", "Path for the audience submission socket")
+	AudienceSock = flag.String("audience-sock", "/var/run/conductor.sock", "Path for the audience submission socket")
 )
 
 func NewJobRequest() (jr *JobRequest) {

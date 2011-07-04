@@ -16,7 +16,7 @@ var (
 	x509PrivateKeyFilename = flag.String("key", "conductor_key.pem", "File containing the Private Key")
 	bindAddress = flag.String("bind-addr", "", "Bind Address")
 	ConfigDirectory = flag.String("config-dir", "/etc/conductor", "Configuration Directory")
-	AudienceSock = flag.String("audience-sock", "/var/run/orchestra/audience.sock", "Path for the audience submission socket")
+	AudienceSock = flag.String("audience-sock", "/var/run/conductor.sock", "Path for the audience submission socket")
 )
 
 
