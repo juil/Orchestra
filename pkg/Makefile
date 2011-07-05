@@ -12,4 +12,7 @@ GOFILES=\
 	registry.go\
 
 include $(GOROOT)/src/Make.pkg
+
+ifdef HAVE_PROTOBUF
 include $(GOROOT)/src/pkg/goprotobuf.googlecode.com/hg/Make.protobuf
+endif
