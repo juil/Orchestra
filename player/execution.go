@@ -16,6 +16,8 @@ func ExecuteJob(job *o.JobRequest) <-chan *o.TaskResponse {
 }
 
 func batchLogger(jobid uint64, errpipe *os.File) {
+	defer errpipe.Close()
+
 	r := bufio.NewReader(errpipe)
 	for {
 		lb, _, err := r.ReadLine()
@@ -71,6 +73,7 @@ func doExecution(job *o.JobRequest, completionChannel chan<- *o.TaskResponse) {
 	}	
 	devNull, err := os.Open(os.DevNull)
 	o.MightFail("couldn't open DevNull", err)
+	defer devNull.Close()
 	for i := 0; i < 2; i++ {
 		if procenv.Files[i] == nil {
 			procenv.Files[i] = devNull
