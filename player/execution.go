@@ -69,6 +69,13 @@ func doExecution(job *o.JobRequest, completionChannel chan<- *o.TaskResponse) {
 			}
 		}
 	}	
+	devNull, err := os.Open(os.DevNull)
+	o.MightFail("couldn't open DevNull", err)
+	for i := 0; i < 2; i++ {
+		if procenv.Files[i] == nil {
+			procenv.Files[i] = devNull
+		}
+	}
 	var args []string = nil
 	args = append(args, eenv.Arguments...)
 
