@@ -263,6 +263,7 @@ func ProcessingLoop() {
 				conn.Close()
 			}
 			conn = newconn
+			pendingTaskRequest = false
 
 			// start the reader
 			go Reader(conn)
