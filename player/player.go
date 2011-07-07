@@ -22,6 +22,11 @@ const (
 	RetryDelay			= 5e9
 )
 
+type NewConnectionInfo struct {
+	conn net.Conn
+	timeout int64
+}
+
 var (
 	masterHostname 		= flag.String("master", "conductor", "Hostname of the Conductor")
 	localHostname  		= flag.String("hostname", "", "My Hostname (defaults to autoprobing)")
@@ -31,7 +36,7 @@ var (
 	lostConnection 		= make(chan int)
 	pendingQueue		= list.New()
 	unacknowledgedQueue	= list.New()
-	newConnection		= make(chan net.Conn)
+	newConnection		= make(chan *NewConnectionInfo)
 	pendingTaskRequest	= false
 )
 
@@ -167,8 +172,8 @@ var dispatcher	= map[uint8] func(net.Conn, interface{}) {
 	o.TypeTaskResponse:	handleIllegal,
 }
 
-func connectMe() {
-	var backOff int64 = InitialReconnectDelay
+func connectMe(initialDelay int64) {
+	var backOff int64 = initialDelay
 	for {
 		tconf := &tls.Config{
 		}
@@ -187,7 +192,10 @@ func connectMe() {
 				backOff = MaximumReconnectDelay
 			}
 		} else {
-			newConnection <- conn
+			nc := new(NewConnectionInfo)
+			nc.conn = conn
+			nc.timeout = backOff
+			newConnection <- nc
 			return
 		}
 	}
@@ -197,8 +205,9 @@ func ProcessingLoop() {
 	var	conn			net.Conn		= nil
 	var     nextRetryResp		*o.TaskResponse 	= nil
 	var	jobCompletionChan	<-chan *o.TaskResponse	= nil
+	var	connectDelay		int64			= InitialReconnectDelay
 	// kick off a new connection attempt.
-	go connectMe()
+	go connectMe(connectDelay)
 
 	// and this is where we spin!
 	for {	
@@ -258,11 +267,12 @@ func ProcessingLoop() {
 			sendResponse(conn, nextRetryResp)
 			nextRetryResp = nil
 		// New connection.  Set up the receiver thread and Introduce ourselves.
-		case newconn := <-newConnection:
+		case nci := <-newConnection:
 			if conn != nil {
 				conn.Close()
 			}
-			conn = newconn
+			conn = nci.conn
+			connectDelay = nci.timeout
 			pendingTaskRequest = false
 
 			// start the reader
@@ -277,7 +287,7 @@ func ProcessingLoop() {
 			conn.Close()
 			conn = nil
 			// restart the connection attempts
-			go connectMe()
+			go connectMe(connectDelay)
 		// Message received from master.  Decode and action.
 		case p := <-receivedMessage:
 			// because the message could possibly be an ACK, push the next retry response back into the queue so acknowledge can find it.
@@ -293,6 +303,7 @@ func ProcessingLoop() {
 			}
 			handler, exists := dispatcher[p.Type]
 			if (exists) {
+				connectDelay = InitialReconnectDelay
 				handler(conn, upkt)
 			} else {
 				o.Fail("Unhandled Pkt Type %d", p.Type)
