@@ -175,29 +175,33 @@ var dispatcher	= map[uint8] func(net.Conn, interface{}) {
 func connectMe(initialDelay int64) {
 	var backOff int64 = initialDelay
 	for {
+		// Sleep first.
+		if backOff > 0 {
+			o.Warn("Sleeping for %d seconds", backOff/1e9)
+			err := time.Sleep(backOff)
+			o.MightFail("Couldn't Sleep",err)
+			backOff *= ReconnectDelayScale
+			if backOff > MaximumReconnectDelay {
+				backOff = MaximumReconnectDelay
+			}
+		} else {
+			backOff = InitialReconnectDelay
+		}
+
 		tconf := &tls.Config{
 		}
 		raddr := fmt.Sprintf("%s:%d", *masterHostname, *masterPort)
 		o.Warn("Connecting to %s", raddr)
 		conn, err := tls.Dial("tcp", raddr, tconf)
 		
-		if err != nil {
-			o.Warn("Couldn't connect to master: %s", err)
-			o.Warn("Sleeping for %d seconds", backOff/1e9)
-			err := time.Sleep(backOff)
-			o.MightFail("Couldn't Sleep",err)
-
-			backOff *= ReconnectDelayScale
-			if backOff > MaximumReconnectDelay {
-				backOff = MaximumReconnectDelay
-			}
-		} else {
+		if err == nil {
 			nc := new(NewConnectionInfo)
 			nc.conn = conn
 			nc.timeout = backOff
 			newConnection <- nc
 			return
 		}
+		o.Warn("Couldn't connect to master: %s", err)
 	}
 }
 
@@ -205,7 +209,7 @@ func ProcessingLoop() {
 	var	conn			net.Conn		= nil
 	var     nextRetryResp		*o.TaskResponse 	= nil
 	var	jobCompletionChan	<-chan *o.TaskResponse	= nil
-	var	connectDelay		int64			= InitialReconnectDelay
+	var	connectDelay		int64			= 0
 	// kick off a new connection attempt.
 	go connectMe(connectDelay)
 
@@ -303,7 +307,7 @@ func ProcessingLoop() {
 			}
 			handler, exists := dispatcher[p.Type]
 			if (exists) {
-				connectDelay = InitialReconnectDelay
+				connectDelay = 0
 				handler(conn, upkt)
 			} else {
 				o.Fail("Unhandled Pkt Type %d", p.Type)
