@@ -5,7 +5,7 @@
 #
 # set ENABLED=yes to enable the conductor.
 #
-ENABLED=yes
+ENABLED=no
 
 # Path to the private keyfile to use as the local TLS key.
 TLS_KEY=/etc/ssl/private/ssl-cert-snakeoil.key
