@@ -190,7 +190,7 @@ func (task *TaskRequest) IsTarget(player string) (valid bool) {
 			valid = true
 		}
 	}
-	return true
+	return valid
 }
 
 
