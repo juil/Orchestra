@@ -58,10 +58,23 @@ func doExecution(job *o.JobRequest, completionChannel chan<- *o.TaskResponse) {
 		procenv.Env = append(procenv.Env, k+"="+v)
 	}
 
+	// attach FDs to procenv.
 	procenv.Files = make([]*os.File, 3)
+
+	// first off, attach /dev/null to stdin and stdout
+	devNull, err := os.OpenFile(os.DevNull, os.O_RDWR | os.O_APPEND, 0666)
+	o.MightFail("couldn't open DevNull", err)
+	defer devNull.Close()
+	for i := 0; i < 2; i++ {
+		procenv.Files[i] = devNull
+	}
+	// attach STDERR to to our logger via pipe.
 	lr, lw, err := os.Pipe()
 	o.MightFail("Couldn't create pipe", err)
+	defer lw.Close()
+	// lr will be closed by the logger.
 	procenv.Files[2] = lw
+	// check the environment's configuration and allow it to override stdin, stdout, and FDs 3+
 	if nil != eenv.Files {
 		for i := range eenv.Files {
 			if i < 2 {
@@ -69,14 +82,6 @@ func doExecution(job *o.JobRequest, completionChannel chan<- *o.TaskResponse) {
 			} else {
 				procenv.Files = append(procenv.Files, eenv.Files[i])
 			}
-		}
-	}	
-	devNull, err := os.Open(os.DevNull)
-	o.MightFail("couldn't open DevNull", err)
-	defer devNull.Close()
-	for i := 0; i < 2; i++ {
-		if procenv.Files[i] == nil {
-			procenv.Files[i] = devNull
 		}
 	}
 	var args []string = nil
