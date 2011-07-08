@@ -17,6 +17,7 @@ var (
 	bindAddress = flag.String("bind-addr", "", "Bind Address")
 	ConfigDirectory = flag.String("config-dir", "/etc/conductor", "Configuration Directory")
 	AudienceSock = flag.String("audience-sock", "/var/run/conductor.sock", "Path for the audience submission socket")
+	StateDir = flag.String("state-dir", "/var/spool/orchestra", "State/Spool directory for storing persistant state between runs")
 )
 
 
@@ -48,6 +49,8 @@ func main() {
 
 	// start the master dispatch system
 	InitDispatch()
+	defer CleanDispatch()
+
 	// start the status listener
 	StartHTTP()
 	// start the audience listener

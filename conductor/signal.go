@@ -34,6 +34,7 @@ func signalHandler() {
 		case syscall.SIGINT:
 			fmt.Fprintln(os.Stderr, "Interrupt Received - Terminating")
 			//FIXME: Gentle Shutdown
+			CleanDispatch()
 			os.Exit(1)
 		case syscall.SIGTERM:
 			fmt.Fprintln(os.Stderr, "Terminate Received - Terminating")

@@ -6,12 +6,88 @@ package main;
 import (
 	"sync/atomic"
 	"container/list"
+	"os"
+	"path"
+	"bufio"
+	"strconv"
+	"fmt"
 	o "orchestra"
+)
+
+const (
+	IdCheckpointSafetySkip = 10e4  // Skip 10e4 entries if orchestra didn't shutdown cleanly for safety.
 )
 
 var lastId uint64 = 0
 
+func checkpointPath() string {
+	return path.Join(*StateDir, "last_id.checkpoint")
+}
+
+func savePath() string {
+	return path.Join(*StateDir, "last_id")
+}
+
+func loadLastId() {
+	fh, err := os.Open(checkpointPath())
+	if err == nil {
+		defer fh.Close()
+		
+		// we have a checkpoint file.  blah.
+		cbio := bufio.NewReader(fh)
+		l, err := cbio.ReadString('\n')
+		lastId, err = strconv.Atoui64(l)
+		if err != nil {
+			o.Fail("Couldn't read Last ID from checkpoint file.  Aborting for safety.")
+		}
+		lastId += IdCheckpointSafetySkip
+	} else {
+		pe, ok := err.(*os.PathError)	
+		if !ok || pe.Error != os.ENOENT {
+			o.Fail("Found checkpoint file, but couldn't open it: %s", err)
+		}
+		fh,err := os.Open(savePath())
+		pe, ok = err.(*os.PathError)	
+		if !ok || pe.Error == os.ENOENT {
+			lastId = 0;
+			return;
+		}
+		o.MightFail("Couldn't open last_id file", err)
+		defer fh.Close()
+		cbio := bufio.NewReader(fh)
+		l, err := cbio.ReadString('\n')
+		lastId, err = strconv.Atoui64(l)
+		if err != nil {
+			o.Fail("Couldn't read Last ID from last_id.  Aborting for safety.")
+		}
+	}
+	writeIdCheckpoint()
+}
+
+func writeIdCheckpoint() {
+	fh, err := os.OpenFile(checkpointPath(), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		o.Warn("Failed to create checkpoint file: %s", err)
+		return
+	}
+	defer fh.Close()
+	fmt.Fprintf(fh, "%d\n", lastId)
+}
+
+func saveLastId() {
+	fh, err := os.OpenFile(savePath(), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		o.Warn("Failed to create last ID save file: %s", err)
+		return
+	}
+	defer fh.Close()
+	fmt.Fprintf(fh, "%d\n", lastId)
+	os.Remove(checkpointPath())
+}
+
 func nextRequestId() uint64 {
+	//FIXME: we should do this periodically, not on every new job.
+	defer writeIdCheckpoint()
 	return atomic.AddUint64(&lastId, 1)
 }
 
@@ -56,7 +132,14 @@ func DispatchStatus() (waitingTasks int, waitingPlayers []string) {
 }
 
 func InitDispatch() {
+	// load the next task ID
+	loadLastId()
+
 	go masterDispatch(); // go!
+}
+
+func CleanDispatch() {
+	saveLastId()
 }
 
 func QueueJob(job *o.JobRequest) {
