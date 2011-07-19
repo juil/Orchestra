@@ -5,6 +5,7 @@ package main
 import (
 	"os"
 	"bufio"
+	"strings"
 	o "orchestra"
 )
 
@@ -32,6 +33,22 @@ func batchLogger(jobid uint64, errpipe *os.File) {
 	}
 }
 
+func peSetEnv(env []string, key string, value string) []string {
+	mkey := key+"="
+	found := false
+	for i, v := range env {
+		if strings.HasPrefix(v, mkey) {
+			env[i] = key+"="+value
+			found = true
+			break
+		}
+	}
+	if !found {
+		env = append(env, key+"="+value)
+	}
+	return env
+}
+
 func doExecution(job *o.JobRequest, completionChannel chan<- *o.TaskResponse) {
 	// we must notify the parent when we exit.
 	defer func(c chan<- *o.TaskResponse, job *o.JobRequest) { c <- job.MyResponse }(completionChannel,job)
@@ -54,8 +71,19 @@ func doExecution(job *o.JobRequest, completionChannel chan<- *o.TaskResponse) {
 	job.MyResponse.State = o.RESP_RUNNING
 
 	procenv := new(os.ProcAttr)
+	// Build the default environment.
+	procenv.Env = peSetEnv(procenv.Env, "PATH", "/usr/bin:/usr/sbin:/bin:/sbin")
+	procenv.Env = peSetEnv(procenv.Env, "IFS", " \t\n")
+	pwd, err := os.Getwd()
+	if err != nil {
+		job.MyResponse.State = o.RESP_FAILED_HOST_ERROR
+		o.Warn("Job %d: Couldn't resolve PWD: %s", job.Id, err)
+		return
+	}
+	procenv.Env = peSetEnv(procenv.Env, "PWD", pwd)
+	// copy in the environment overrides
 	for k, v := range eenv.Environment {
-		procenv.Env = append(procenv.Env, k+"="+v)
+		procenv.Env = peSetEnv(procenv.Env, k, v)
 	}
 
 	// attach FDs to procenv.
