@@ -1,0 +1,22 @@
+The Score 'pipe' Interface
+==========================
+
+So, there was a 'env' interface which provided K/V data to the score via
+the environment.
+
+That works for sending information to the score, but not for getting
+information back.
+
+To make that step, the 'pipe' interface has been built.
+
+pipe reads line output in stdout from the executing process.  If the
+line contains a '=', it's split at the first '=' for the Key and
+Value, and they are stored in the responses.  All other output is
+ignored.
+
+To use this interface, the score's .conf file should contain:
+----
+interface pipe
+----
+
+
