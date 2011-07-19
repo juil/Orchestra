@@ -10,5 +10,6 @@ GOFILES=\
 	execution.go\
 	interface.go\
 	if_env.go\
+	if_pipe.go\
 
 include $(GOROOT)/src/Make.cmd

@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	EnvironmentPrefix = "ORC_"
+	envEnvironmentPrefix = "ORC_"
 )
 
 func init() {
@@ -35,7 +35,7 @@ func (ei *EnvInterface) Prepare() bool {
 func (ei *EnvInterface) SetupProcess() (ee *ExecutionEnvironment) {
 	ee = NewExecutionEnvironment()
 	for k,v := range ei.job.Params {
-		ee.Environment[EnvironmentPrefix+k] = v
+		ee.Environment[envEnvironmentPrefix+k] = v
 	}
 
 	return ee
