@@ -1,3 +1,9 @@
+orchestra (0.1.2-2) unstable; urgency=low
+
+  * Add missing /var/spool/orchestra directory to package management.
+
+ -- Chris Collins <chris.collins@anchor.net.au>  Tue, 19 Jul 2011 14:58:13 +1000
+
 orchestra (0.1.2-1) unstable; urgency=low
 
   * Update for 0.1.2 bugfixes and 'pipe' interface.
