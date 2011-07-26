@@ -132,23 +132,25 @@ func LoadScores() {
 			continue
 		}
 
-		//FIXME: we should check for the execution flag, but I'm lazy
-		fullpath := path.Join(*ScoreDirectory, files[i].Name)
-		conffile := fullpath+".conf"
-		o.Warn("Considering %s as score", files[i].Name)
+		// check for the executionable bit
+		if (files[i].Permission & 0111) != 0 {
+			fullpath := path.Join(*ScoreDirectory, files[i].Name)
+			conffile := fullpath+".conf"
+			o.Warn("Considering %s as score", files[i].Name)
 
-		si := NewScoreInfo()
-		si.Name = files[i].Name
-		si.Executable = fullpath
+			si := NewScoreInfo()
+			si.Name = files[i].Name
+			si.Executable = fullpath
 		
-		conf, err := os.Open(conffile)
-		if err == nil {
-			o.Warn("Parsing configuration for %s", fullpath)
-			ScoreConfigure(si, conf)
-			conf.Close()
-		} else {
-			o.Warn("Couldn't open config file for %s, assuming defaults: %s", files[i].Name, err)
+			conf, err := os.Open(conffile)
+			if err == nil {
+				o.Warn("Parsing configuration for %s", fullpath)
+				ScoreConfigure(si, conf)
+				conf.Close()
+			} else {
+				o.Warn("Couldn't open config file for %s, assuming defaults: %s", files[i].Name, err)
+			}
+			Scores[files[i].Name] = si
 		}
-		Scores[files[i].Name] = si
 	}
 }
