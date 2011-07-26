@@ -261,6 +261,7 @@ func manageRegistry() {
 					copy(newplayers[0:idx], job.Players[0:idx])
 					copy(newplayers[idx:len(job.Players)-1], job.Players[idx+1:len(job.Players)])
 					job.Players = newplayers
+					job.updateState()
 				} else {
 					resp.success = false
 				}
