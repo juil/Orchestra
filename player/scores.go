@@ -133,7 +133,7 @@ func LoadScores() {
 		}
 
 		// check for the executionable bit
-		if (files[i].Permission & 0111) != 0 {
+		if (files[i].Permission() & 0111) != 0 {
 			fullpath := path.Join(*ScoreDirectory, files[i].Name)
 			conffile := fullpath+".conf"
 			o.Warn("Considering %s as score", files[i].Name)
