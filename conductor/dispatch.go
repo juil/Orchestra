@@ -11,6 +11,7 @@ import (
 	"bufio"
 	"strconv"
 	"fmt"
+	"strings"
 	o "orchestra"
 )
 
@@ -36,7 +37,7 @@ func loadLastId() {
 		// we have a checkpoint file.  blah.
 		cbio := bufio.NewReader(fh)
 		l, err := cbio.ReadString('\n')
-		lastId, err = strconv.Atoui64(l)
+		lastId, err = strconv.Atoui64(strings.TrimSpace(l))
 		if err != nil {
 			o.Fail("Couldn't read Last ID from checkpoint file.  Aborting for safety.")
 		}
@@ -56,7 +57,7 @@ func loadLastId() {
 		defer fh.Close()
 		cbio := bufio.NewReader(fh)
 		l, err := cbio.ReadString('\n')
-		lastId, err = strconv.Atoui64(l)
+		lastId, err = strconv.Atoui64(strings.TrimSpace(l))
 		if err != nil {
 			o.Fail("Couldn't read Last ID from last_id.  Aborting for safety.")
 		}
