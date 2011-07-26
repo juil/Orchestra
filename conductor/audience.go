@@ -223,6 +223,14 @@ func UnixAudienceListener(sockaddr string) {
 	o.MightFail("Couldn't resolve audience socket address", err)
 	l, err := net.ListenUnix("unix", laddr)
 	o.MightFail("Couldn't start audience unixsock listener", err)
+	// Fudge the permissions on the unixsock!
+	fi, err = os.Stat(sockaddr)
+	if err == nil {
+		os.Chmod(sockaddr, fi.Mode | 0777)
+	} else {
+		o.Warn("Couldn't fudge permission on audience socket: %s", err)
+	}
+	
 	// make sure we clean up the unix socket when we die.
 	defer l.Close()
 	defer os.Remove(sockaddr)
