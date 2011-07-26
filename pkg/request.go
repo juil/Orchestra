@@ -198,6 +198,7 @@ func (task *TaskRequest) IsTarget(player string) (valid bool) {
 
 func NewTaskResponse() (resp *TaskResponse) {
 	resp = new(TaskResponse)
+	resp.Response = make(map[string]string)
 
 	return resp
 }
