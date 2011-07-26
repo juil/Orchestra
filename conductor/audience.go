@@ -123,15 +123,25 @@ func handleAudienceRequest(c net.Conn) {
 	case "queue":
 		if nil == outobj.Score {
 			o.Warn("Malformed Queue message talking to audience. Missing Score")
+			sendQueueFailureResponse("Missing Score", enc)
 			return
 		}
 		if nil == outobj.Scope {
 			o.Warn("Malformed Queue message talking to audience. Missing Scope")
+			sendQueueFailureResponse("Missing Scope", enc)
 			return
 		}
 		if nil == outobj.Players || len(outobj.Players) < 1 {
 			o.Warn("Malformed Queue message talking to audience. Missing Players")
+			sendQueueFailureResponse("Missing Players", enc)
 			return
+		}
+		for _, player := range outobj.Players {
+			if !HostAuthorised(player) {
+				o.Warn("Malformed Queue message - unknown player %s specified.", player)
+				sendQueueFailureResponse("Invalid Player", enc)
+				return
+			}
 		}
 		job := NewRequest()
 		job.Score = *outobj.Score
@@ -140,31 +150,51 @@ func handleAudienceRequest(c net.Conn) {
 			job.Scope = o.SCOPE_ONEOF
 		case "all":
 			job.Scope = o.SCOPE_ALLOF
+		default:
+			sendQueueFailureResponse("Invalid Scope", enc)
 		}
 		job.Players = outobj.Players
 		job.Params = outobj.Params
+
 		QueueJob(job)
-		/* build response */
-		resp := make([]interface{},2)
-		resperr := new(string)
-		*resperr = "OK"
-		resp[0] = resperr
-
-		// this probably looks odd, but all numbers cross through float64 when being json encoded.  d'oh!
-		jobid := new(uint64)
-		*jobid = uint64(job.Id)
-		resp[1] = jobid
-
-		err := enc.Encode(resp)
-		if nil != err {
-			o.Warn("Couldn't encode response to audience: %s", err)
-		}
+		sendQueueSuccessResponse(job, enc)
 	default:
 		o.Warn("Unknown operation talking to audience: \"%s\"", *(outobj.Op))
 		return
 	}
 
 	_ = enc
+}
+
+func sendQueueSuccessResponse(job *o.JobRequest, enc *json.Encoder) {
+	resp := make([]interface{},2)
+	resperr := new(string)
+	*resperr = "OK"
+	resp[0] = resperr
+
+	// this probably looks odd, but all numbers cross through float64 when being json encoded.  d'oh!
+	jobid := new(uint64)
+	*jobid = uint64(job.Id)
+	resp[1] = jobid
+
+	err := enc.Encode(resp)
+	if nil != err {
+		o.Warn("Couldn't encode response to audience: %s", err)
+	}
+}
+
+func sendQueueFailureResponse(reason string, enc *json.Encoder) {
+	resp := make([]interface{},2)
+	resperr := new(string)
+	*resperr = "Error"
+	resp[0] = resperr
+	if reason != "" {
+		resp[1] = &reason
+	}
+	err := enc.Encode(resp)
+	if nil != err {
+		o.Warn("Couldn't encode response to audience: %s", err)
+	}
 }
 
 func AudienceListener(l net.Listener) {
