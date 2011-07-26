@@ -152,6 +152,7 @@ func handleAudienceRequest(c net.Conn) {
 			job.Scope = o.SCOPE_ALLOF
 		default:
 			sendQueueFailureResponse("Invalid Scope", enc)
+			return
 		}
 		job.Players = outobj.Players
 		job.Params = outobj.Params
