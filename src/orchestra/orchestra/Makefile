@@ -2,7 +2,7 @@ include $(GOROOT)/src/Make.inc
 
 #TARGDIR=../build/pkg/$(GOOS)_$(GOARCH)
 
-TARG=orchestra
+TARG=orchestra/orchestra
 GOFILES=\
 	orchestra.pb.go\
 	wire.go\

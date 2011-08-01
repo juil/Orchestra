@@ -1,7 +1,7 @@
 /* dispatch.go
 */
 
-package main;
+package main
 
 import (
 	"sync/atomic"

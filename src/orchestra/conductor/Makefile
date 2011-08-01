@@ -1,8 +1,10 @@
 include $(GOROOT)/src/Make.inc
 
+DEPS=../orchestra
+
 TARG=conductor
-GCIMPORTS=-I../pkg/_obj
-LDIMPORTS=-L../pkg/_obj
+#GCIMPORTS=-I../pkg/_obj
+#LDIMPORTS=-L../pkg/_obj
 
 GOFILES=\
 	conductor.go\

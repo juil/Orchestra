@@ -7,7 +7,7 @@
 //
 // This registry implementation implements stores that will be only be needed on the conductor.
 
-package main;
+package main
 
 import (
 	o "orchestra"
