@@ -14,7 +14,7 @@ func pathFor(shortname string) (fullpath string) {
 
 func ConfigLoad() {
 	pfh, err := os.Open(pathFor("players"))
-	o.MightFail("Couldn't open \"players\"", err)
+	o.MightFail(err, "Couldn't open \"players\"")
 
 	pbr := bufio.NewReader(pfh)
 

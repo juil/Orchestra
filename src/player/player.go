@@ -79,10 +79,10 @@ func acknowledgeResponse(jobid uint64) {
 
 func sendResponse(c net.Conn, resp *o.TaskResponse) {
 	//FIXME: update retry time on Response
-	o.Warn("Sending Response!")
+	o.Debug("Sending Response!")
 	ptr := resp.Encode()
 	p, err := o.Encode(ptr)
-	o.MightFail("Failed to encode response", err)
+	o.MightFail(err, "Failed to encode response")
 	_, err = p.Send(c)
 	if err != nil {
 		o.Warn("Transmission error: %s", err)
@@ -114,7 +114,7 @@ func Reader(conn net.Conn) {
 }
 
 func handleNop(c net.Conn, message interface{}) {
-	o.Warn("NOP Received")
+	o.Debug("NOP Received")
 }
 
 func handleIllegal(c net.Conn, message interface{}) {
@@ -122,18 +122,18 @@ func handleIllegal(c net.Conn, message interface{}) {
 }
 
 func handleRequest(c net.Conn, message interface{}) {
-	o.Warn("Request Recieved.  Decoding!")
+	o.Debug("Request Recieved.  Decoding!")
 	ptr, ok := message.(*o.ProtoTaskRequest)
 	if !ok {
 		o.Assert("CC stuffed up - handleRequest got something that wasn't a ProtoTaskRequest.")
 	}
 	job := o.JobFromProto(ptr)
 	/* search the registry for the job */
-	o.Warn("Request for Job.ID %d", job.Id)
+	o.Debug("Request for Job.ID %d", job.Id)
 	existing := o.JobGet(job.Id)
 	if nil != existing {
 		if (existing.MyResponse.IsFinished()) {
-			o.Warn("job%d: Resending Response", job.Id)
+			o.Debug("job%d: Resending Response", job.Id)
 			sendResponse(c, existing.MyResponse)
 		}
 	} else {
@@ -143,14 +143,14 @@ func handleRequest(c net.Conn, message interface{}) {
 		job.MyResponse.Id = job.Id
 		job.MyResponse.State = o.RESP_PENDING		
 		o.JobAdd(job)
-		o.Warn("Added Job %d to our local registry", job.Id)
+		o.Info("Added New Job %d to our local registry", job.Id)
 		// and then push it onto the pending job list so we know it needs actioning.
 		appendPendingJob(job)
 	}
 }
 
 func handleAck(c net.Conn, message interface{}) {
-	o.Warn("Ack Received")
+	o.Debug("Ack Received")
 	ack, ok := message.(*o.ProtoAcknowledgement)
 	if !ok {
 		o.Assert("CC stuffed up - handleAck got something that wasn't a ProtoAcknowledgement.")
@@ -177,9 +177,9 @@ func connectMe(initialDelay int64) {
 	for {
 		// Sleep first.
 		if backOff > 0 {
-			o.Warn("Sleeping for %d seconds", backOff/1e9)
+			o.Info("Sleeping for %d seconds", backOff/1e9)
 			err := time.Sleep(backOff)
-			o.MightFail("Couldn't Sleep",err)
+			o.MightFail(err, "Couldn't Sleep")
 			backOff *= ReconnectDelayScale
 			if backOff > MaximumReconnectDelay {
 				backOff = MaximumReconnectDelay
@@ -191,7 +191,7 @@ func connectMe(initialDelay int64) {
 		tconf := &tls.Config{
 		}
 		raddr := fmt.Sprintf("%s:%d", *masterHostname, *masterPort)
-		o.Warn("Connecting to %s", raddr)
+		o.Info("Connecting to %s", raddr)
 		conn, err := tls.Dial("tcp", raddr, tconf)
 		
 		if err == nil {
@@ -240,10 +240,10 @@ func ProcessingLoop() {
 				jobCompletionChan = ExecuteJob(nextJob)
 			} else {
 				if conn != nil && !pendingTaskRequest {
-					o.Warn("Asking for trouble")
+					o.Debug("Asking for trouble")
 					p := o.MakeReadyForTask()
 					p.Send(conn)
-					o.Warn("Sent Request for trouble")
+					o.Debug("Sent Request for trouble")
 					pendingTaskRequest = true
 				}
 			}
@@ -251,7 +251,7 @@ func ProcessingLoop() {
 		select {
 		// Currently executing job finishes.
 		case newresp := <- jobCompletionChan:
-			o.Warn("Job %d completed with State %d\n", newresp.Id, newresp.State)
+			o.Debug("Job %d has completed with State %d\n", newresp.Id, newresp.State)
 			// preemptively set a retrytime.
 			newresp.RetryTime = time.Nanoseconds()
 			// ENOCONN - sub it in as our next retryresponse, and prepend the old one onto the queue.
@@ -259,10 +259,10 @@ func ProcessingLoop() {
 				if nil != nextRetryResp {
 					prequeueResponse(nextRetryResp)
 				}
-				o.Warn("job%d: Queuing Initial Response", newresp.Id)
+				o.Debug("job%d: Queuing Initial Response", newresp.Id)
 				nextRetryResp = newresp
 			} else {
-				o.Warn("job%d: Sending Initial Response", newresp.Id)
+				o.Debug("job%d: Sending Initial Response", newresp.Id)
 				sendResponse(conn, newresp)
 			}
 			jobCompletionChan = nil
@@ -303,7 +303,7 @@ func ProcessingLoop() {
 			if p.Length > 0 {
 				var err os.Error
 				upkt, err = p.Decode()
-				o.MightFail("Couldn't decode packet from master", err)
+				o.MightFail(err, "Couldn't decode packet from master")
 			}
 			handler, exists := dispatcher[p.Type]
 			if (exists) {
@@ -317,7 +317,7 @@ func ProcessingLoop() {
 			if conn == nil {
 				break
 			}
-			o.Warn("Sending Nop")
+			o.Debug("Sending Nop")
 			p := o.MakeNop()
 			p.Send(conn)
 		}

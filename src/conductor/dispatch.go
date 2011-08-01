@@ -53,7 +53,7 @@ func loadLastId() {
 			lastId = 0;
 			return;
 		}
-		o.MightFail("Couldn't open last_id file", err)
+		o.MightFail(err, "Couldn't open last_id file")
 		defer fh.Close()
 		cbio := bufio.NewReader(fh)
 		l, err := cbio.ReadString('\n')
@@ -163,7 +163,7 @@ func masterDispatch() {
 	for {
 		select {
 		case player := <-playerIdle:
-			o.Warn("Dispatch: Player")
+			o.Debug("Dispatch: Player")
 			/* first, scan to see if we have anything for this player */
 			i := tq.Front()
 			for {
@@ -184,7 +184,7 @@ func masterDispatch() {
 				i = i.Next()
 			}
 		case player := <-playerDead:
-			o.Warn("Dispatch: Dead Player")
+			o.Debug("Dispatch: Dead Player")
 			for i := pq.Front(); i != nil; i = i.Next() {
 				p, _ := i.Value.(*ClientInfo)
 				if player.Player == p.Player {
@@ -193,7 +193,7 @@ func masterDispatch() {
 				}
 			}
 		case task := <-rqTask:
-			o.Warn("Dispatch: Task")
+			o.Debug("Dispatch: Task")
 			/* first, scan to see if we have valid pending player for this task */
 			i := pq.Front()
 			for {
@@ -213,7 +213,7 @@ func masterDispatch() {
 				i = i.Next();
 			}
 		case respChan := <-statusRequest:
-			o.Warn("Status!")
+			o.Debug("Status!")
 			response := new(QueueInformation)
 			response.waitingTasks = tq.Len()
 			pqLen := pq.Len()

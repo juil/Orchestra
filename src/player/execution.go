@@ -29,7 +29,7 @@ func batchLogger(jobid uint64, errpipe *os.File) {
 			o.Warn("executionLogger failed: %s", err)
 			return
 		}
-		o.Warn("JOB %d:%s", jobid, string(lb))
+		o.Info("JOB %d:STDERR:%s", jobid, string(lb))
 	}
 }
 
@@ -91,14 +91,14 @@ func doExecution(job *o.JobRequest, completionChannel chan<- *o.TaskResponse) {
 
 	// first off, attach /dev/null to stdin and stdout
 	devNull, err := os.OpenFile(os.DevNull, os.O_RDWR | os.O_APPEND, 0666)
-	o.MightFail("couldn't open DevNull", err)
+	o.MightFail(err, "couldn't open DevNull")
 	defer devNull.Close()
 	for i := 0; i < 2; i++ {
 		procenv.Files[i] = devNull
 	}
 	// attach STDERR to to our logger via pipe.
 	lr, lw, err := os.Pipe()
-	o.MightFail("Couldn't create pipe", err)
+	o.MightFail(err, "Couldn't create pipe")
 	defer lw.Close()
 	// lr will be closed by the logger.
 	procenv.Files[2] = lw
@@ -115,7 +115,7 @@ func doExecution(job *o.JobRequest, completionChannel chan<- *o.TaskResponse) {
 	var args []string = nil
 	args = append(args, eenv.Arguments...)
 
-	o.Warn("Job %d: Executing %s", job.Id, score.Executable)
+	o.Info("Job %d: Executing %s", job.Id, score.Executable)
 	go batchLogger(job.Id, lr)
 	proc, err := os.StartProcess(score.Executable, args, procenv)
 	if err != nil {

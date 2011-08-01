@@ -119,7 +119,7 @@ func handleAudienceRequest(c net.Conn) {
 			jresp[1] = nil
 		}
 		enc.Encode(jresp)
-		o.Warn("Status...")
+		o.Debug("Status...")
 	case "queue":
 		if nil == outobj.Score {
 			o.Warn("Malformed Queue message talking to audience. Missing Score")
@@ -220,9 +220,9 @@ func UnixAudienceListener(sockaddr string) {
 		}
 	}
 	laddr, err := net.ResolveUnixAddr("unix", sockaddr)
-	o.MightFail("Couldn't resolve audience socket address", err)
+	o.MightFail(err, "Couldn't resolve audience socket address")
 	l, err := net.ListenUnix("unix", laddr)
-	o.MightFail("Couldn't start audience unixsock listener", err)
+	o.MightFail(err, "Couldn't start audience unixsock listener")
 	// Fudge the permissions on the unixsock!
 	fi, err = os.Stat(sockaddr)
 	if err == nil {

@@ -64,7 +64,7 @@ func (client *ClientInfo) Send(p *o.WirePkt) {
 func (client *ClientInfo) sendNow(p *o.WirePkt) {
 	_, err := p.Send(client.connection)
 	if err != nil {
-		o.Warn("Error sending pkt to %s: %s", client.Name(), err)
+		o.Warn("Error sending pkt to %s: %s.  Terminating connection.", client.Name(), err)
 		client.Abort()
 	}
 }
@@ -72,7 +72,7 @@ func (client *ClientInfo) sendNow(p *o.WirePkt) {
 func (client *ClientInfo) SendTask(task *o.TaskRequest) {
 	tr := task.Encode()
 	p, err := o.Encode(tr)
-	o.MightFail("Couldn't encode task for client.", err)
+	o.MightFail(err, "Couldn't encode task for client.")
 	client.Send(p)
 	task.RetryTime = time.Nanoseconds() + RetryDelay
 }
@@ -122,20 +122,20 @@ func (client *ClientInfo) Disassociate() {
 }
 
 func handleNop(client *ClientInfo, message interface{}) {
-	o.Warn("Client %s: NOP Received", client.Name())
+	o.Debug("Client %s: NOP Received", client.Name())
 }
 
 func handleIdentify(client *ClientInfo, message interface{}) {
 	if client.Player != "" {
-		o.Warn("Client %s: Tried to reintroduce itself.", client.Name())
+		o.Warn("Client %s: Tried to reintroduce itself. Terminating Connection.", client.Name())
 		client.Abort()
 		return
 	}
 	ic, _ := message.(*o.IdentifyClient)
-	o.Warn("Client %s: Identified Itself As \"%s\"", client.Name(), *ic.Hostname)
+	o.Info("Client %s: Identified Itself As \"%s\"", client.Name(), *ic.Hostname)
 	client.Player = *ic.Hostname
 	if (!HostAuthorised(client.Player)) {
-		o.Warn("Client %s: Not Authorised", client.Name())
+		o.Warn("Client %s: Not Authorised.  Terminating Connection.", client.Name())
 		client.Abort()
 		return
 	}
@@ -148,7 +148,7 @@ func handleIdentify(client *ClientInfo, message interface{}) {
 }
 
 func handleReadyForTask(client *ClientInfo, message interface{}) {
-	o.Warn("Client %s: Asked for Job", client.Name())
+	o.Debug("Client %s: Asked for Job", client.Name())
 	PlayerWaitingForJob(client)
 }
 
@@ -172,7 +172,7 @@ func handleResult(client *ClientInfo, message interface{}){
 		} else {
 			job := o.JobGet(r.Id)
 			if job != nil {
-				o.Warn("Got Response.  Acking.")
+				o.Debug("Got Response.  Acking.")
 				/* if the job exists, Ack it. */
 				ack := o.MakeAck(r.Id)
 				client.sendNow(ack)
@@ -190,7 +190,7 @@ func handleResult(client *ClientInfo, message interface{}){
 				var didretry bool = false
 
 				if r.DidFail() {
-					o.Warn("Client %s reports failure for Job %d", client.Name(), r.Id)
+					o.Info("Client %s reports failure for Job %d", client.Name(), r.Id)
 					if r.CanRetry() {
 						job := o.JobGet(r.Id)
 						if job.Scope == o.SCOPE_ONEOF {
@@ -275,7 +275,7 @@ func clientLogic(client *ClientInfo) {
 		case p := <-client.PktInQ:
 			/* we've received a packet.  do something with it. */
 			if client.Player == "" && p.Type != o.TypeIdentifyClient {
-				o.Warn("Client %s didn't Identify self - got type %d instead!", client.Name(), p.Type)
+				o.Warn("Client %s didn't Identify self - got type %d instead!  Terminating Connection.", client.Name(), p.Type)
 				client.Abort()
 				break
 			}
@@ -285,7 +285,7 @@ func clientLogic(client *ClientInfo) {
 
 				upkt, err = p.Decode()
 				if err != nil {
-					o.Warn("Error unmarshalling message from Client %s: %s", client.Name(), err)
+					o.Warn("Error unmarshalling message from Client %s: %s.  Terminating Connection.", client.Name(), err)
 					client.Abort()
 					break
 				}
@@ -303,14 +303,14 @@ func clientLogic(client *ClientInfo) {
 		case t := <-client.TaskQ:
 			client.GotTask(t)
 		case <-client.abortQ:
-			o.Warn("Client %s connection writer on fire!", client.Name())
+			o.Debug("Client %s connection has been told to abort!", client.Name())
 			loop = false
 		case <-time.After(KeepaliveDelay):
 			p := o.MakeNop()
-			o.Warn("Sending Keepalive to %s", client.Name())
+			o.Debug("Sending Keepalive to %s", client.Name())
 			_, err := p.Send(client.connection)
 			if err != nil {
-				o.Warn("Error sending pkt to %s: %s", client.Name(), err)	
+				o.Warn("Error sending pkt to %s: %s.  Terminating Connection.", client.Name(), err)	
 				client.Abort()
 			}
 		}
@@ -334,7 +334,7 @@ func clientReceiver(client *ClientInfo) {
 			client.PktInQ <- pkt
 		}
 	}
-	o.Warn("Client %s connection reader on fire!", conn.RemoteAddr().String())
+	o.Debug("Client %s connection reader has exited it's loop!", conn.RemoteAddr().String())
 }
 
 /* The Main Server loop calls this method to hand off connections to us */

@@ -37,7 +37,7 @@ func main() {
 		}
 	}
 	certpair, err := tls.LoadX509KeyPair(*x509CertFilename, *x509PrivateKeyFilename)
-	o.MightFail("Couldn't load certificates", err)
+	o.MightFail(err, "Couldn't load certificates")
 	
 	sockConfig.ServerName = o.ProbeHostname()
 

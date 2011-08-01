@@ -4,7 +4,7 @@ package orchestra
 import (
 	"os"
 	"net"
-	"log"
+	"syslog"
 	"fmt"
 	"runtime/debug"
 )
@@ -14,20 +14,43 @@ const (
 	DefaultHTTPPort = 2259
 )
 
+var	logWriter, _ = syslog.New(syslog.LOG_DEBUG, "orchestra")
+
+func SetLogName(name string) {
+	if nil != logWriter {
+		logWriter.Close()
+		logWriter = nil
+	}
+	var err os.Error
+	logWriter, err = syslog.New(syslog.LOG_DEBUG, name)
+	MightFail(err, "Couldn't reopen syslog")
+}
+
+
+func Debug(format string, args ...interface{}) {
+	logWriter.Debug(fmt.Sprintf(format, args...))
+}
+
+func Info(format string, args ...interface{}) {
+	logWriter.Info(fmt.Sprintf(format, args...))
+}
+
 func Warn(format string, args ...interface{}) {
-	log.Printf("WARN: "+format, args...)
+	logWriter.Warning(fmt.Sprintf(format, args...))
 }
 
 func Fail(mesg string, args ...interface {}) {
-	log.Fatalf("ERR: "+mesg, args...);
+	logWriter.Err(fmt.Sprintf(mesg, args...))
+	fmt.Fprintf(os.Stderr, "ERR: "+mesg, args...);
+	os.Exit(1)
 }	
 
-func MightFail(mesg string, err os.Error) {
+func MightFail(err os.Error, mesg string, args ...interface {}) {
 	if (nil != err) {
-		Fail("%s: %s", mesg, err.String())
+		imesg := fmt.Sprintf(mesg, args...)
+		Fail("%s: %s", imesg, err.String())
 	}
 }
-
 
 // Throws a generic assertion error, stacktraces, dies.
 // only really to be used where the runtime-time configuration
@@ -43,9 +66,9 @@ func ProbeHostname() (fqdn string) {
 
 	shortHostname, err := os.Hostname()
 	addr, err := net.LookupHost(shortHostname)
-	MightFail("Failed to get address for hostname", err)
+	MightFail(err, "Failed to get address for hostname")
 	hostnames, err := net.LookupAddr(addr[0])
-	MightFail("Failed to get full hostname for address", err)
+	MightFail(err, "Failed to get full hostname for address")
 
 	return hostnames[0]
 }

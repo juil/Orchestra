@@ -109,7 +109,7 @@ func ScoreConfigure(si *ScoreInfo, r io.Reader) {
 
 func LoadScores() {
 	dir, err := os.Open(*ScoreDirectory)
-	o.MightFail("Couldn't open Score directory", err)
+	o.MightFail(err, "Couldn't open Score directory", err)
 	defer dir.Close()
 
 	Scores = make(map[string]*ScoreInfo)

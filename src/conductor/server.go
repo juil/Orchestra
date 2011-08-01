@@ -20,7 +20,7 @@ func ServiceRequests(bindAddr *net.IPAddr, hostname *string, serverCert tls.Cert
 	if (bindAddr != nil && hostname == nil) {
 		o.Warn("Probing for fqdn for bind address as none was provided.")
 		hostnames, err := net.LookupAddr(bindAddr.String())
-		o.MightFail("Failed to get full hostname for bind address", err)
+		o.MightFail(err, "Failed to get full hostname for bind address")
 		sockConfig.ServerName = hostnames[0]
 	} else {
 		if (hostname != nil) {
@@ -43,14 +43,14 @@ func ServiceRequests(bindAddr *net.IPAddr, hostname *string, serverCert tls.Cert
 	} else {
 		laddr = fmt.Sprintf("%s:%d", bindAddr.String(), o.DefaultMasterPort)
 	}
-	o.Warn("Binding to %s", laddr)
+	o.Info("Binding to %s", laddr)
 	listener, err := tls.Listen("tcp", laddr, &sockConfig)
-	o.MightFail("Couldn't bind TLS listener", err)
+	o.MightFail(err, "Couldn't bind TLS listener")
 
 	for {
 		o.Warn("Waiting for Connection...")
 		c, err := listener.Accept()
-		o.MightFail("Couldn't accept TLS connection", err)
+		o.MightFail(err, "Couldn't accept TLS connection")
 		o.Warn("Connection received from %s", c.RemoteAddr().String())
 		HandleConnection(c)
 	}
