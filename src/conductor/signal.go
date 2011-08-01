@@ -1,7 +1,7 @@
 /* signal.go
  *
  * Signal Handlers
-*/
+ */
 
 package main
 
@@ -19,12 +19,12 @@ import (
 // handle.
 func signalHandler() {
 	for {
-		sig := <- signal.Incoming
+		sig := <-signal.Incoming
 
-		ux, ok := sig.(signal.UnixSignal)
+		ux, ok := sig.(os.UnixSignal)
 		if !ok {
 			o.Warn("Couldn't handle signal %s, Coercion failed", sig)
-			continue;
+			continue
 		}
 
 		switch int(ux) {
@@ -42,7 +42,7 @@ func signalHandler() {
 			os.Exit(2)
 		}
 	}
-	
+
 }
 
 func init() {

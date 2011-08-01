@@ -29,7 +29,7 @@ func main() {
 	var bindIp *net.IPAddr = nil
 	if (*bindAddress != "") {
 		var err os.Error
-		bindIp, err = net.ResolveIPAddr(*bindAddress)
+		bindIp, err = net.ResolveIPAddr("ip", *bindAddress)
 		if (err != nil) {
 			o.Warn("Ignoring bind address.  Couldn't resolve \"%s\": %s", bindAddress, err)
 		} else {
