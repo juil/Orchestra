@@ -1,5 +1,5 @@
-GOPATH=`pwd`
-GOINSTALL_FLAGS='-dashboard=false'
+GOPATH=$(shell pwd)
+GOINSTALL_FLAGS=-dashboard=false -clean=true
 
 all: build
 
