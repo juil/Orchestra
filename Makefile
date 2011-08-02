@@ -1,22 +1,42 @@
+#
+# version of Orchestra
+#
+VERSION=0.2.0
+
+#
+# packaging revision.
+#
+REVISION=1
+
+# remove at your own peril.
+#
+# This tells goinstall to work against the local directory as the
+# build/source path, and not use the system directories.
+#
 GOPATH=$(shell pwd)
 GOINSTALL_FLAGS=-dashboard=false -clean=true
 
-VERSION=0.2.0-1
+export GOPATH
+
 
 all: build
 
 build:
-	GOPATH=$(GOPATH) goinstall $(GOINSTALL_FLAGS) conductor
-	GOPATH=$(GOPATH) goinstall $(GOINSTALL_FLAGS) player
-	GOPATH=$(GOPATH) goinstall $(GOINSTALL_FLAGS) submitjob
-	GOPATH=$(GOPATH) goinstall $(GOINSTALL_FLAGS) getstatus
+	goinstall $(GOINSTALL_FLAGS) conductor
+	goinstall $(GOINSTALL_FLAGS) player
+	goinstall $(GOINSTALL_FLAGS) submitjob
+	goinstall $(GOINSTALL_FLAGS) getstatus
+
+tgz:
+	git archive --format=tar --prefix=orchestra-$(VERSION)/ v$(VERSION) | gzip -9c > ../orchestra-$(VERSION).tgz
 
 deb:	build-root
 	fpm -s dir -t deb \
 		-n 'orchestra' \
 		-v "$(VERSION)" \
+		--iteration "$(REVISION)" \
 		-m 'Chris Collins <chris.collins@anchor.net.au>' \
-		-p "../orchestra-$(VERSION).deb" \
+		-p "../orchestra_$(VERSION)-$(REVISION)_$(shell dpkg --print-architecture).deb" \
 		--description "Services for getting stuff run" \
 		--url "http://github.com/kuroneko/orchestra/" \
 		--conflicts 'orchestra-conductor, orchestra-player-go' \
@@ -29,8 +49,9 @@ rpm:	build-root
 	fpm -s dir -t rpm \
 		-n 'orchestra' \
 		-v "$(VERSION)" \
+		--iteration "$(REVISION)" \
 		-m 'Chris Collins <chris.collins@anchor.net.au>' \
-		-p "../orchestra-$(VERSION).rpm" \
+		-p "../orchestra-$(VERSION)-$(REVISION).rpm" \
 		--description "Services for getting stuff run" \
 		--url "http://github.com/kuroneko/orchestra/" \
 		--config-files etc/conductor/players \

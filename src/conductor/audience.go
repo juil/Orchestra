@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	o "orchestra"
+	"strings"
 )
 
 type GenericJsonRequest struct {
@@ -238,5 +239,6 @@ func UnixAudienceListener(sockaddr string) {
 }
 
 func StartAudienceSock() {
-	go UnixAudienceListener(*AudienceSock)
+	audienceSockPath := strings.TrimSpace(GetStringOpt("audience socket path"))
+	go UnixAudienceListener(audienceSockPath)
 }

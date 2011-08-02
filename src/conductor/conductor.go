@@ -12,40 +12,44 @@ import (
 )
 
 var (
-	x509CertFilename = flag.String("cert", "conductor_crt.pem", "File containing the Certificate")
-	x509PrivateKeyFilename = flag.String("key", "conductor_key.pem", "File containing the Private Key")
-	bindAddress = flag.String("bind-addr", "", "Bind Address")
-	ConfigDirectory = flag.String("config-dir", "/etc/conductor", "Configuration Directory")
-	AudienceSock = flag.String("audience-sock", "/var/run/conductor.sock", "Path for the audience submission socket")
-	StateDir = flag.String("state-dir", "/var/spool/orchestra", "State/Spool directory for storing persistant state between runs")
+	ConfigFile = flag.String("config-file", "/etc/conductor/conductor.conf", "File containing the conductor configuration")
 )
 
 
 func main() {
 	var sockConfig tls.Config
 
+	// parse command line options.
 	flag.Parse()
-
-	var bindIp *net.IPAddr = nil
-	if (*bindAddress != "") {
-		var err os.Error
-		bindIp, err = net.ResolveIPAddr("ip", *bindAddress)
-		if (err != nil) {
-			o.Warn("Ignoring bind address.  Couldn't resolve \"%s\": %s", bindAddress, err)
-		} else {
-			bindIp = nil
-		}
-	}
-	certpair, err := tls.LoadX509KeyPair(*x509CertFilename, *x509PrivateKeyFilename)
-	o.MightFail(err, "Couldn't load certificates")
-	
-	sockConfig.ServerName = o.ProbeHostname()
 
 	// Start the client registry - configuration parsing will block indefinately
 	// if the registry listener isn't working
 	StartRegistry()
 	// do an initial configuration load
 	ConfigLoad()
+
+	// set up stuff now.
+	bindAddress := GetStringOpt("bind address")
+	var bindIp *net.IPAddr = nil
+	if (bindAddress != "") {
+		var err os.Error
+		bindIp, err = net.ResolveIPAddr("ip", bindAddress)
+		if (err != nil) {
+			o.Warn("Ignoring bind address.  Couldn't resolve \"%s\": %s", bindAddress, err)
+		} else {
+			bindIp = nil
+		}
+	}
+
+	x509CertFilename := GetStringOpt("x509 certificate")
+	x509PrivateKeyFilename := GetStringOpt("x509 private key")
+	certpair, err := tls.LoadX509KeyPair(x509CertFilename, x509PrivateKeyFilename)
+	o.MightFail(err, "Couldn't load certificates")
+
+	sockConfig.ServerName = GetStringOpt("server name")
+	if sockConfig.ServerName == "" {
+		sockConfig.ServerName = o.ProbeHostname()
+	}
 
 	// start the master dispatch system
 	InitDispatch()

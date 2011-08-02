@@ -1,20 +1,53 @@
 package main
 
 import (
-	"path"
 	"os"
 	"bufio"
 	o "orchestra"
 	"strings"
+	c "github.com/kuroneko/configureit"
 )
 
-func pathFor(shortname string) (fullpath string) {
-	return path.Clean(path.Join(*ConfigDirectory, shortname))
+var configFile *c.Config = c.New()
+
+func init() {
+	configFile.Add("x509 certificate", c.NewStringOption("/etc/conductor/conductor_crt.pem"))
+	configFile.Add("x509 private key", c.NewStringOption("/etc/conductor/conductor_key.pem"))
+	configFile.Add("bind address", c.NewStringOption(""))
+	configFile.Add("server name", c.NewStringOption(""))
+	configFile.Add("audience socket path", c.NewStringOption("/var/run/conductor.sock"))
+	configFile.Add("conductor state path", c.NewStringOption("/var/spool/orchestra"))
+	configFile.Add("player file path", c.NewStringOption("/etc/conductor/players"))
+}
+
+func GetStringOpt(key string) string {
+	cnode := configFile.Get(key)
+	if cnode == nil {
+		o.Assert("tried to get a configuration option that doesn't exist.")
+	}
+	sopt, ok := cnode.(*c.StringOption)
+	if !ok {
+		o.Assert("tried to get a non-string configuration option with GetStringOpt")
+	}
+	return strings.TrimSpace(sopt.Value)
 }
 
 func ConfigLoad() {
-	pfh, err := os.Open(pathFor("players"))
-	o.MightFail(err, "Couldn't open \"players\"")
+	// attempt to open the configuration file.
+	fh, err := os.Open(*ConfigFile)
+	if nil == err {
+		defer fh.Close()
+		// reset the config File data, then reload it.
+		configFile.Reset()
+		ierr := configFile.Read(fh, 1)
+		o.MightFail(ierr, "Couldn't parse configuration")
+	} else {
+		o.Warn("Couldn't open configuration file: %s.  Proceeding anyway.", err)
+	}
+
+	playerpath := strings.TrimSpace(GetStringOpt("player file path"))
+	pfh, err := os.Open(playerpath)
+	o.MightFail(err, "Couldn't open \"%s\"", playerpath)
 
 	pbr := bufio.NewReader(pfh)
 
