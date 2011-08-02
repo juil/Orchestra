@@ -53,13 +53,19 @@ func doExecution(job *o.JobRequest, completionChannel chan<- *o.TaskResponse) {
 	// we must notify the parent when we exit.
 	defer func(c chan<- *o.TaskResponse, job *o.JobRequest) { c <- job.MyResponse }(completionChannel,job)
 
+	// first of all, verify that the score exists at all.
+	score, exists := Scores[job.Score]
+	if !exists {
+		o.Warn("Job %d: Request for unknown score \"%s\"", job.Score)
+		job.MyResponse.State = o.RESP_FAILED_UNKNOWN_SCORE
+		return
+	}
 	si := NewScoreInterface(job)
 	if si == nil {
 		o.Warn("Job %d: Couldn't initialise Score Interface", job.Id)
 		job.MyResponse.State = o.RESP_FAILED_HOST_ERROR
 		return
 	}
-	score := Scores[job.Score]
 	if !si.Prepare() {
 		o.Warn("Job %d: Couldn't Prepare Score Interface", job.Id)
 		job.MyResponse.State = o.RESP_FAILED_HOST_ERROR

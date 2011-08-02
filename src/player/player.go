@@ -34,6 +34,7 @@ var (
 	ScoreDirectory 		= flag.String("score-dir", "/usr/lib/orchestra/scores", "Path for the Directory containing valid scores")
  	receivedMessage 	= make(chan *o.WirePkt)
 	lostConnection 		= make(chan int)
+	reloadScores		= make(chan int, 2)
 	pendingQueue		= list.New()
 	unacknowledgedQueue	= list.New()
 	newConnection		= make(chan *NewConnectionInfo)
@@ -210,6 +211,7 @@ func ProcessingLoop() {
 	var     nextRetryResp		*o.TaskResponse 	= nil
 	var	jobCompletionChan	<-chan *o.TaskResponse	= nil
 	var	connectDelay		int64			= 0
+	var	doScoreReload		bool			= false
 	// kick off a new connection attempt.
 	go connectMe(connectDelay)
 
@@ -265,6 +267,11 @@ func ProcessingLoop() {
 				o.Debug("job%d: Sending Initial Response", newresp.Id)
 				sendResponse(conn, newresp)
 			}
+			if doScoreReload {
+				o.Info("Performing Deferred score reload")
+				LoadScores()
+				doScoreReload = false
+			}
 			jobCompletionChan = nil
 		// If the current unacknowledged response needs a retry, send it.
 		case <-retryChan:
@@ -312,6 +319,18 @@ func ProcessingLoop() {
 			} else {
 				o.Fail("Unhandled Pkt Type %d", p.Type)
 			}
+		// Reload scores
+		case <-reloadScores:
+			// fortunately this is actually completely safe as 
+			// long as nobody's currently executing.
+			// who'd have thunk it?
+			if jobCompletionChan == nil {
+				o.Info("Reloading scores")
+				LoadScores()
+			} else {
+				o.Info("Deferring score reload (execution in progress)")
+				doScoreReload = true
+			}
 		// Keepalive delay expired.  Send Nop.
 		case <-time.After(KeepaliveDelay):
 			if conn == nil {
@@ -325,6 +344,8 @@ func ProcessingLoop() {
 }
 
 func main() {
+	o.SetLogName("player")
+
 	flag.Parse()
 
 	if (*localHostname == "") {
