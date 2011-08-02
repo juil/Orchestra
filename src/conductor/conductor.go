@@ -17,6 +17,8 @@ var (
 
 
 func main() {
+	o.SetLogName("conductor")
+
 	var sockConfig tls.Config
 
 	// parse command line options.

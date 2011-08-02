@@ -41,7 +41,7 @@ func Warn(format string, args ...interface{}) {
 
 func Fail(mesg string, args ...interface {}) {
 	logWriter.Err(fmt.Sprintf(mesg, args...))
-	fmt.Fprintf(os.Stderr, "ERR: "+mesg, args...);
+	fmt.Fprintf(os.Stderr, "ERR: "+mesg+"\n", args...);
 	os.Exit(1)
 }	
 
