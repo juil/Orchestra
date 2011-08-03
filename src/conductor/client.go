@@ -9,6 +9,7 @@ import (
 	"net"
 	"time"
 	"os"
+	"crypto/tls"
 )
 
 const (
@@ -139,10 +140,24 @@ func handleIdentify(client *ClientInfo, message interface{}) {
 		client.Abort()
 		return
 	}
+
+	/* if we're TLS, verify the client's certificate given the name it used */
+	tlsc, ok := client.connection.(*tls.Conn)
+	if ok {
+		o.Debug("Connection is TLS.")
+		o.Debug("Checking Connection State")
+		err := tlsc.VerifyHostname(client.Player)
+		if err != nil {
+			o.Warn("Client failed hostname verification.")
+			client.Abort()
+			return
+		}
+	}
 	reg := ClientGet(client.Player)
 	if nil == reg {
 		o.Warn("Couldn't register client %s.  aborting connection.", client.Name())
 		client.Abort()
+		return
 	}
 	client.MergeState(reg)
 }

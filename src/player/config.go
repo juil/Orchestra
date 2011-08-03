@@ -9,6 +9,7 @@ import (
 	"strings"
 	"github.com/kuroneko/configureit"
 	"crypto/tls"
+	"crypto/x509"
 	"os"
 )
 
@@ -17,10 +18,10 @@ var configFile = configureit.New()
 func init() {
 	configFile.Add("x509 certificate", configureit.NewStringOption("/etc/orchestra/player_crt.pem"))
 	configFile.Add("x509 private key", configureit.NewStringOption("/etc/orchestra/player_key.pem"))
+	configFile.Add("ca certificates", configureit.NewPathListOption(nil))
 	configFile.Add("master", configureit.NewStringOption("conductor"))
 	configFile.Add("score directory", configureit.NewStringOption("/usr/lib/orchestra/scores"))
 	configFile.Add("player name", configureit.NewStringOption(""))
-
 }
 
 func GetStringOpt(key string) string {
@@ -33,6 +34,15 @@ func GetStringOpt(key string) string {
 		o.Assert("tried to get a non-string configuration option with GetStringOpt")
 	}
 	return strings.TrimSpace(sopt.Value)
+}
+
+func GetCACertList() []string {
+	cnode := configFile.Get("ca certificiates")
+	if cnode == nil {
+		o.Assert("tried to get a configuration option that doesn't exist.")
+	}
+	plopt, _ := cnode.(*configureit.PathListOption)
+	return plopt.Values
 }
 
 func ConfigLoad() {
@@ -53,4 +63,23 @@ func ConfigLoad() {
 	x509PrivateKeyFilename := GetStringOpt("x509 private key")
 	CertPair, err = tls.LoadX509KeyPair(x509CertFilename, x509PrivateKeyFilename)
 	o.MightFail(err, "Couldn't load certificates")
+
+	// load the CA Certs
+	CACertPool = x509.NewCertPool()
+	caCertNames := GetCACertList()
+	if caCertNames != nil {
+		for _, filename := range caCertNames {
+			fh, err := os.Open(filename)
+			if err != nil {
+				o.Warn("Whilst parsing CA certs, couldn't open %s: %s", filename, err)
+				continue
+			}
+			defer fh.Close()
+			fi, err := fh.Stat()
+			o.MightFail(err, "Couldn't stat CA certificate file: %s", filename)
+			data := make([]byte, fi.Size)
+			fh.Read(data)
+			CACertPool.AppendCertsFromPEM(data)
+		}
+	}
 }

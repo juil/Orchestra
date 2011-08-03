@@ -9,6 +9,7 @@ import (
 	"flag"
 	o	"orchestra"
 	"crypto/tls"
+	"crypto/x509"
 	"net"
 	"time"
 	"container/list"
@@ -30,6 +31,7 @@ type NewConnectionInfo struct {
 var (
 	ConfigFile		= flag.String("config-file", "/etc/orchestra/player.conf", "Path to the configuration file")	
 	CertPair tls.Certificate
+	CACertPool *x509.CertPool
 	LocalHostname string	= ""
 	
  	receivedMessage 	= make(chan *o.WirePkt)
@@ -190,6 +192,7 @@ func connectMe(initialDelay int64) {
 		}
 
 		tconf := &tls.Config{
+		RootCAs: CACertPool,
 		}
 		tconf.Certificates = append(tconf.Certificates, CertPair)
 
@@ -204,8 +207,11 @@ func connectMe(initialDelay int64) {
 
 		raddr := fmt.Sprintf("%s:%d", masterHostname, 2258)
 		o.Info("Connecting to %s", raddr)
-		conn, err := tls.Dial("tcp", raddr, tconf)
-		
+		conn, err := tls.Dial("tcp", raddr, tconf)		
+		if err != nil {
+			conn.Handshake()
+			err = conn.VerifyHostname(masterHostname)
+		}
 		if err == nil {
 			nc := new(NewConnectionInfo)
 			nc.conn = conn

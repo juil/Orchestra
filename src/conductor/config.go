@@ -33,6 +33,16 @@ func GetStringOpt(key string) string {
 	return strings.TrimSpace(sopt.Value)
 }
 
+
+func GetCACertList() []string {
+	cnode := configFile.Get("ca certificiates")
+	if cnode == nil {
+		o.Assert("tried to get a configuration option that doesn't exist.")
+	}
+	plopt, _ := cnode.(*configureit.PathListOption)
+	return plopt.Values
+}
+
 func ConfigLoad() {
 	// attempt to open the configuration file.
 	fh, err := os.Open(*ConfigFile)

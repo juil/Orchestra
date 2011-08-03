@@ -9,32 +9,65 @@ import (
 	"net"
 	"crypto/tls"
 	"fmt"
+	"os"
+	"crypto/x509"
 	o	"orchestra"
 )
 
 
-func ServiceRequests(bindAddr *net.IPAddr, hostname *string, serverCert tls.Certificate) {
+func ServiceRequests() {
 	var sockConfig tls.Config
 
-	/* we have a bindAddr and validate it */
-	if (bindAddr != nil && hostname == nil) {
+	// resolve the bind address
+	bindAddressStr := GetStringOpt("bind address")
+	var bindAddr *net.IPAddr = nil
+	if (bindAddressStr != "") {
+		var err os.Error
+		bindAddr, err = net.ResolveIPAddr("ip", bindAddressStr)
+		if (err != nil) {
+			o.Warn("Ignoring bind address.  Couldn't resolve \"%s\": %s", bindAddressStr, err)
+		} else {
+			bindAddr = nil
+		}
+	}
+	// load the x509 certificate and key, then attach it to the tls config.
+	x509CertFilename := GetStringOpt("x509 certificate")
+	x509PrivateKeyFilename := GetStringOpt("x509 private key")
+	serverCert, err := tls.LoadX509KeyPair(x509CertFilename, x509PrivateKeyFilename)
+	o.MightFail(err, "Couldn't load certificates")
+	sockConfig.Certificates = append(sockConfig.Certificates, serverCert)
+
+	// load the CA certs
+	caCertPool := x509.NewCertPool()
+	caCertNames := GetCACertList()
+	if caCertNames != nil {
+		for _, filename := range caCertNames {
+			fh, err := os.Open(filename)
+			if err != nil {
+				o.Warn("Whilst parsing CA certs, couldn't open %s: %s", filename, err)
+				continue
+			}
+			defer fh.Close()
+			fi, err := fh.Stat()
+			o.MightFail(err, "Couldn't stat CA certificate file: %s", filename)
+			data := make([]byte, fi.Size)
+			fh.Read(data)
+			caCertPool.AppendCertsFromPEM(data)
+		}
+	}
+	sockConfig.RootCAs = caCertPool
+
+	// determine the server hostname.
+	sockConfig.ServerName = GetStringOpt("server name")
+	if sockConfig.ServerName == "" {
 		o.Warn("Probing for fqdn for bind address as none was provided.")
 		hostnames, err := net.LookupAddr(bindAddr.String())
 		o.MightFail(err, "Failed to get full hostname for bind address")
 		sockConfig.ServerName = hostnames[0]
-	} else {
-		if (hostname != nil) {
-			sockConfig.ServerName = *hostname
-		} else {
-			if (hostname == nil) {
-				o.Warn("Probing for fqdn as none was provided.")
-				sockConfig.ServerName = o.ProbeHostname()
-			}
-		}
 	}
-	/* attach the certificate chain! */
-	sockConfig.Certificates = make([]tls.Certificate, 1)
-	sockConfig.Certificates[0] = serverCert
+
+	// ask the client to authenticate
+	sockConfig.AuthenticateClient = true
 
 	/* convert the bindAddress to a string suitable for the Listen call */
 	var laddr string
