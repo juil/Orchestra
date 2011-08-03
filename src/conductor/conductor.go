@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	ConfigFile = flag.String("config-file", "/etc/conductor/conductor.conf", "File containing the conductor configuration")
+	ConfigFile = flag.String("config-file", "/etc/orchestra/conductor.conf", "File containing the conductor configuration")
 )
 
 
