@@ -56,7 +56,7 @@ func doExecution(job *o.JobRequest, completionChannel chan<- *o.TaskResponse) {
 	// first of all, verify that the score exists at all.
 	score, exists := Scores[job.Score]
 	if !exists {
-		o.Warn("Job %d: Request for unknown score \"%s\"", job.Score)
+		o.Warn("Job %d: Request for unknown score \"%s\"", job.Id, job.Score)
 		job.MyResponse.State = o.RESP_FAILED_UNKNOWN_SCORE
 		return
 	}
