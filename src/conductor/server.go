@@ -58,8 +58,11 @@ func ServiceRequests() {
 	sockConfig.RootCAs = caCertPool
 
 	// determine the server hostname.
-	sockConfig.ServerName = GetStringOpt("server name")
-	if sockConfig.ServerName == "" {
+	servername := GetStringOpt("server name")
+	if servername != "" {
+		o.Info("Using %s as the server name", servername)
+		sockConfig.ServerName = servername
+	} else {
 		if bindAddr != nil {
 			o.Warn("Probing for fqdn for bind address as none was provided.")
 			hostnames, err := net.LookupAddr(bindAddr.String())
