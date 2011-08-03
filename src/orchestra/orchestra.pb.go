@@ -74,7 +74,7 @@ func (x ProtoTaskResponse_TaskStatus) String() string {
 }
 
 type IdentifyClient struct {
-	Hostname		*string	"PB(bytes,1,req,name=hostname)"
+	Hostname		*string	`protobuf:"bytes,1,req,name=hostname"`
 	XXX_unrecognized	[]byte
 }
 
@@ -82,8 +82,8 @@ func (this *IdentifyClient) Reset()		{ *this = IdentifyClient{} }
 func (this *IdentifyClient) String() string	{ return proto.CompactTextString(this) }
 
 type ProtoJobParameter struct {
-	Key			*string	"PB(bytes,1,req,name=key)"
-	Value			*string	"PB(bytes,2,req,name=value)"
+	Key			*string	`protobuf:"bytes,1,req,name=key"`
+	Value			*string	`protobuf:"bytes,2,req,name=value"`
 	XXX_unrecognized	[]byte
 }
 
@@ -91,9 +91,9 @@ func (this *ProtoJobParameter) Reset()		{ *this = ProtoJobParameter{} }
 func (this *ProtoJobParameter) String() string	{ return proto.CompactTextString(this) }
 
 type ProtoTaskRequest struct {
-	Jobname			*string			"PB(bytes,1,req,name=jobname)"
-	Id			*uint64			"PB(varint,2,req,name=id)"
-	Parameters		[]*ProtoJobParameter	"PB(bytes,3,rep,name=parameters)"
+	Jobname			*string			`protobuf:"bytes,1,req,name=jobname"`
+	Id			*uint64			`protobuf:"varint,2,req,name=id"`
+	Parameters		[]*ProtoJobParameter	`protobuf:"bytes,3,rep,name=parameters"`
 	XXX_unrecognized	[]byte
 }
 
@@ -101,8 +101,8 @@ func (this *ProtoTaskRequest) Reset()		{ *this = ProtoTaskRequest{} }
 func (this *ProtoTaskRequest) String() string	{ return proto.CompactTextString(this) }
 
 type ProtoAcknowledgement struct {
-	Id			*uint64				"PB(varint,1,req,name=id)"
-	Response		*ProtoAcknowledgement_AckType	"PB(varint,2,req,name=response,enum=orchestra.ProtoAcknowledgement_AckType,def=1)"
+	Id			*uint64				`protobuf:"varint,1,req,name=id"`
+	Response		*ProtoAcknowledgement_AckType	`protobuf:"varint,2,req,name=response,enum=orchestra.ProtoAcknowledgement_AckType,def=1"`
 	XXX_unrecognized	[]byte
 }
 
@@ -112,9 +112,9 @@ func (this *ProtoAcknowledgement) String() string	{ return proto.CompactTextStri
 const Default_ProtoAcknowledgement_Response ProtoAcknowledgement_AckType = ProtoAcknowledgement_ACK_OK
 
 type ProtoTaskResponse struct {
-	Id			*uint64				"PB(varint,1,req,name=id)"
-	Status			*ProtoTaskResponse_TaskStatus	"PB(varint,3,req,name=status,enum=orchestra.ProtoTaskResponse_TaskStatus)"
-	Response		[]*ProtoJobParameter		"PB(bytes,4,rep,name=response)"
+	Id			*uint64				`protobuf:"varint,1,req,name=id"`
+	Status			*ProtoTaskResponse_TaskStatus	`protobuf:"varint,3,req,name=status,enum=orchestra.ProtoTaskResponse_TaskStatus"`
+	Response		[]*ProtoJobParameter		`protobuf:"bytes,4,rep,name=response"`
 	XXX_unrecognized	[]byte
 }
 
