@@ -157,7 +157,7 @@ func handleIdentify(client *ClientInfo, message interface{}) {
 			client.Abort()
 			return
 		}
-		chain, err := cs.PeerCertificates[0].Verify(vo)
+		_, err := cs.PeerCertificates[0].Verify(vo)
 		if err != nil {
 			o.Warn("couldn't verify client certificate: %s", err)
 			client.Abort()
