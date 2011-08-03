@@ -208,7 +208,7 @@ func connectMe(initialDelay int64) {
 		raddr := fmt.Sprintf("%s:%d", masterHostname, 2258)
 		o.Info("Connecting to %s", raddr)
 		conn, err := tls.Dial("tcp", raddr, tconf)		
-		if err != nil {
+		if err == nil {
 			conn.Handshake()
 			err = conn.VerifyHostname(masterHostname)
 		}
