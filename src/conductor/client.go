@@ -148,7 +148,7 @@ func handleIdentify(client *ClientInfo, message interface{}) {
 		o.Debug("Checking Connection State")
 		err := tlsc.VerifyHostname(client.Player)
 		if err != nil {
-			o.Warn("Client failed hostname verification.")
+			o.Warn("Client failed hostname verification: %s", err)
 			client.Abort()
 			return
 		}
