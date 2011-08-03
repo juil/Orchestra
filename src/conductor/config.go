@@ -35,7 +35,7 @@ func GetStringOpt(key string) string {
 
 
 func GetCACertList() []string {
-	cnode := configFile.Get("ca certificiates")
+	cnode := configFile.Get("ca certificates")
 	if cnode == nil {
 		o.Assert("tried to get a configuration option that doesn't exist.")
 	}
