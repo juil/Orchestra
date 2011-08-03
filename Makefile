@@ -52,7 +52,7 @@ deb:	build-root
 		.
 
 rpm:	build-root
-	fpm -e -s dir -t rpm \
+	fpm -s dir -t rpm \
 		-n 'orchestra' \
 		-v "$(VERSION)" \
 		--iteration "$(REVISION)" \
