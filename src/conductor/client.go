@@ -152,7 +152,7 @@ func handleIdentify(client *ClientInfo, message interface{}) {
 		Roots: CACertPool,
 		DNSName: client.Player,
 		}
-		if cs.PeerCertificates == nil {
+		if cs.PeerCertificates == nil || cs.PeerCertificates[0] == nil {
 			o.Warn("Peer didn't provide a certificate. Aborting Connection.")
 			client.Abort()
 			return
