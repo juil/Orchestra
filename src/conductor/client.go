@@ -150,6 +150,7 @@ func handleIdentify(client *ClientInfo, message interface{}) {
 		cs := tlsc.ConnectionState()
 		vo := x509.VerifyOptions{
 		Roots: CACertPool,
+		Intermediates: x509.NewCertPool(),
 		DNSName: client.Player,
 		}
 		if cs.PeerCertificates == nil || cs.PeerCertificates[0] == nil {
