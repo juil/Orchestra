@@ -78,9 +78,8 @@ type IdentifyClient struct {
 	XXX_unrecognized	[]byte
 }
 
-func (this *IdentifyClient) Reset() {
-	*this = IdentifyClient{}
-}
+func (this *IdentifyClient) Reset()		{ *this = IdentifyClient{} }
+func (this *IdentifyClient) String() string	{ return proto.CompactTextString(this) }
 
 type ProtoJobParameter struct {
 	Key			*string	"PB(bytes,1,req,name=key)"
@@ -88,9 +87,8 @@ type ProtoJobParameter struct {
 	XXX_unrecognized	[]byte
 }
 
-func (this *ProtoJobParameter) Reset() {
-	*this = ProtoJobParameter{}
-}
+func (this *ProtoJobParameter) Reset()		{ *this = ProtoJobParameter{} }
+func (this *ProtoJobParameter) String() string	{ return proto.CompactTextString(this) }
 
 type ProtoTaskRequest struct {
 	Jobname			*string			"PB(bytes,1,req,name=jobname)"
@@ -99,9 +97,8 @@ type ProtoTaskRequest struct {
 	XXX_unrecognized	[]byte
 }
 
-func (this *ProtoTaskRequest) Reset() {
-	*this = ProtoTaskRequest{}
-}
+func (this *ProtoTaskRequest) Reset()		{ *this = ProtoTaskRequest{} }
+func (this *ProtoTaskRequest) String() string	{ return proto.CompactTextString(this) }
 
 type ProtoAcknowledgement struct {
 	Id			*uint64				"PB(varint,1,req,name=id)"
@@ -109,9 +106,8 @@ type ProtoAcknowledgement struct {
 	XXX_unrecognized	[]byte
 }
 
-func (this *ProtoAcknowledgement) Reset() {
-	*this = ProtoAcknowledgement{}
-}
+func (this *ProtoAcknowledgement) Reset()		{ *this = ProtoAcknowledgement{} }
+func (this *ProtoAcknowledgement) String() string	{ return proto.CompactTextString(this) }
 
 const Default_ProtoAcknowledgement_Response ProtoAcknowledgement_AckType = ProtoAcknowledgement_ACK_OK
 
@@ -122,9 +118,8 @@ type ProtoTaskResponse struct {
 	XXX_unrecognized	[]byte
 }
 
-func (this *ProtoTaskResponse) Reset() {
-	*this = ProtoTaskResponse{}
-}
+func (this *ProtoTaskResponse) Reset()		{ *this = ProtoTaskResponse{} }
+func (this *ProtoTaskResponse) String() string	{ return proto.CompactTextString(this) }
 
 func init() {
 	proto.RegisterEnum("orchestra.ProtoAcknowledgement_AckType", ProtoAcknowledgement_AckType_name, ProtoAcknowledgement_AckType_value)
