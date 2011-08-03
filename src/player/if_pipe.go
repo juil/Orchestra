@@ -52,7 +52,7 @@ func pipeListener(job *o.JobRequest, outpipe *os.File) {
 		}
 		linein := string(lb)
 		if strings.Index(linein, "=") >= 0 {
-			bits := strings.Split(linein, "=", 2)
+			bits := strings.SplitN(linein, "=", 2)
 			job.MyResponse.Response[bits[0]] = bits[1]
 		}
 	}

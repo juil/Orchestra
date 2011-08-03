@@ -14,8 +14,7 @@ import (
 	"strings"
 	o "orchestra"
 	"path"
-	"bufio"
-	"unicode"
+	"github.com/kuroneko/configureit"
 )
 
 type ScoreInfo struct {
@@ -25,6 +24,8 @@ type ScoreInfo struct {
 	InitialEnv	map[string]string
 
 	Interface	string
+
+	Config		*configureit.Config
 }
 
 type ScoreExecution struct {
@@ -35,13 +36,40 @@ type ScoreExecution struct {
 
 func NewScoreInfo() (si *ScoreInfo) {
 	si = new (ScoreInfo)
-	// establish defaults
-	si.Interface = "env"
-
 	si.InitialEnv = make(map[string]string)
-	si.InitialEnv["PATH"] = "/usr/bin:/bin"
+
+	config := NewScoreInfoConfig()
+	si.updateFromConfig(config)
 
 	return si
+}
+
+func NewScoreInfoConfig() (config *configureit.Config) {
+	config = configureit.New()
+
+	config.Add("interface", configureit.NewStringOption("env"))
+	config.Add("dir", configureit.NewStringOption(""))
+	config.Add("path", configureit.NewStringOption("/usr/bin:/bin"))
+	config.Add("user", configureit.NewUserOption(""))
+
+	return config
+}
+
+func (si *ScoreInfo) updateFromConfig(config *configureit.Config) {
+	// propogate PATH overrides.
+	opt := config.Get("dir")
+	sopt, _ := opt.(*configureit.StringOption)
+	si.InitialEnv["PATH"] = sopt.Value
+
+	// set the interface type.
+	opt = config.Get("interface")
+	sopt, _ = opt.(*configureit.StringOption)
+	si.Interface = sopt.Value
+
+	// propogate initial Pwd
+	opt = config.Get("dir")
+	sopt, _ = opt.(*configureit.StringOption)
+	si.InitialPwd = sopt.Value	
 }
 
 var (
@@ -49,66 +77,16 @@ var (
 )
 
 func ScoreConfigure(si *ScoreInfo, r io.Reader) {
-	br := bufio.NewReader(r)
-
-	linenum := 1
-
-	for {
-		var linebytes []byte = nil
-		var part bool
-		var bytes []byte = nil
-		var err os.Error
-		
-		bytes, part, err = br.ReadLine()
-		if err != nil && err != os.EOF {
-			o.Fail("Error reading configuration: %s", err)
-		}
-		if err == os.EOF {
-			break;
-		}
-		linebytes = append(linebytes,bytes...)
-		if err != os.EOF {
-			for ; part; bytes,part,err = br.ReadLine() {
-				if err != nil  {
-					break
-				}
-				linebytes = append(linebytes, bytes...)
-			}
-			if err != nil && err != os.EOF {
-				o.Fail("Error reading configuration: %s", err)
-			}
-		}
-		line := string(linebytes)
-		// prune leading whitespace.
-		line = strings.TrimLeftFunc(line, unicode.IsSpace)
-		// skip comments
-		if strings.HasPrefix(line, "#") {
-			continue;
-		}
-		// split into fields
-		bits := strings.Fields(line)
-		if len(bits) == 0 {
-			continue;
-		}
-		switch bits[0] {
-		case "interface":
-			if len(bits) != 2 {
-				o.Fail("Malformed score configuration on line %d: too many arguments to interface", linenum)
-			}
-			if !HasInterface(bits[1]) {
-				o.Fail("Malformed score configuration on line %d: Unknown interface type %s", linenum, bits[1])
-			}
-			si.Interface = bits[1]
-		default:
-			o.Fail("Unknown configuration directive %s on line %d", bits[0], linenum)
-		}
-		linenum++
-	}	
-
+	config := NewScoreInfoConfig()
+	err := config.Read(r, 1)
+	o.MightFail(err, "Error Parsing Score Configuration for %s", si.Name)
+	si.updateFromConfig(config)
 }
 
 func LoadScores() {
-	dir, err := os.Open(*ScoreDirectory)
+	scoreDirectory := GetStringOpt("score directory")
+
+	dir, err := os.Open(scoreDirectory)
 	o.MightFail(err, "Couldn't open Score directory", err)
 	defer dir.Close()
 
@@ -134,7 +112,7 @@ func LoadScores() {
 
 		// check for the executionable bit
 		if (files[i].Permission() & 0111) != 0 {
-			fullpath := path.Join(*ScoreDirectory, files[i].Name)
+			fullpath := path.Join(scoreDirectory, files[i].Name)
 			conffile := fullpath+".conf"
 			o.Warn("Considering %s as score", files[i].Name)
 

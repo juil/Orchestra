@@ -14,7 +14,7 @@ REVISION=1
 # build/source path, and not use the system directories.
 #
 GOPATH=$(shell pwd)
-GOINSTALL_FLAGS=-dashboard=false -clean=true
+GOINSTALL_FLAGS=-dashboard=false -clean=true -u=true
 
 export GOPATH
 

@@ -135,7 +135,7 @@ func NewJobRequest() (req *JobRequest) {
 func (req *JobRequest) normalise() {
 	if (len(req.Players) > 1) {
 		/* sort targets so search works */
-		sort.SortStrings(req.Players)
+		sort.Strings(req.Players)
 	} else {
 		if (req.Scope == SCOPE_ONEOF) {
 			req.Scope = SCOPE_ALLOF

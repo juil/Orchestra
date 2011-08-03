@@ -28,10 +28,10 @@ type NewConnectionInfo struct {
 }
 
 var (
-	masterHostname 		= flag.String("master", "conductor", "Hostname of the Conductor")
-	localHostname  		= flag.String("hostname", "", "My Hostname (defaults to autoprobing)")
-	masterPort     		= flag.Int("port", o.DefaultMasterPort, "Port to contact conductor on")
-	ScoreDirectory 		= flag.String("score-dir", "/usr/lib/orchestra/scores", "Path for the Directory containing valid scores")
+	ConfigFile		= flag.String("config-file", "/etc/orchestra/player.conf", "Path to the configuration file")	
+	CertPair tls.Certificate
+	LocalHostname string	= ""
+	
  	receivedMessage 	= make(chan *o.WirePkt)
 	lostConnection 		= make(chan int)
 	reloadScores		= make(chan int, 2)
@@ -191,7 +191,18 @@ func connectMe(initialDelay int64) {
 
 		tconf := &tls.Config{
 		}
-		raddr := fmt.Sprintf("%s:%d", *masterHostname, *masterPort)
+		tconf.Certificates = append(tconf.Certificates, CertPair)
+
+		// update our local hostname.
+		LocalHostname = GetStringOpt("player name")
+		if (LocalHostname == "") {
+			LocalHostname = o.ProbeHostname()
+			o.Warn("No hostname provided - probed hostname: %s", LocalHostname)
+		}
+
+		masterHostname := GetStringOpt("master")
+
+		raddr := fmt.Sprintf("%s:%d", masterHostname, 2258)
 		o.Info("Connecting to %s", raddr)
 		conn, err := tls.Dial("tcp", raddr, tconf)
 		
@@ -290,7 +301,7 @@ func ProcessingLoop() {
 			go Reader(conn)
 		
 			/* Introduce ourself */
-			p := o.MakeIdentifyClient(*localHostname)
+			p := o.MakeIdentifyClient(LocalHostname)
 			p.Send(conn)
 		// Lost connection.  Shut downt he connection.
 		case <-lostConnection:
@@ -347,11 +358,7 @@ func main() {
 	o.SetLogName("player")
 
 	flag.Parse()
-
-	if (*localHostname == "") {
-		*localHostname = o.ProbeHostname()
-		o.Warn("No hostname provided - probed hostname: %s", *localHostname)
-	}
+	
 	LoadScores()
 	ProcessingLoop()
 }

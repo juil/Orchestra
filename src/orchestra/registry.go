@@ -207,7 +207,7 @@ func manageRegistry() {
 		case requestAddJob:
 			if nil != req.job {
 				// ensure that the players are sorted!
-				sort.SortStrings(req.job.Players)
+				sort.Strings(req.job.Players)
 				// update the state
 				req.job.updateState()
 				// and register the job

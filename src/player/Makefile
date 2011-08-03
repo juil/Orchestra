@@ -1,14 +1,14 @@
 include $(GOROOT)/src/Make.inc
 
 TARG=player
-GCIMPORTS=-I../pkg/_obj
-LDIMPORTS=-L../pkg/_obj
 
 GOFILES=\
 	player.go\
 	scores.go\
 	execution.go\
 	interface.go\
+	signal.go\
+	config.go\
 	if_env.go\
 	if_pipe.go\
 

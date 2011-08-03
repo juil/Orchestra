@@ -5,19 +5,20 @@ import (
 	"bufio"
 	o "orchestra"
 	"strings"
-	c "github.com/kuroneko/configureit"
+	"github.com/kuroneko/configureit"
 )
 
-var configFile *c.Config = c.New()
+var configFile *configureit.Config = configureit.New()
 
 func init() {
-	configFile.Add("x509 certificate", c.NewStringOption("/etc/conductor/conductor_crt.pem"))
-	configFile.Add("x509 private key", c.NewStringOption("/etc/conductor/conductor_key.pem"))
-	configFile.Add("bind address", c.NewStringOption(""))
-	configFile.Add("server name", c.NewStringOption(""))
-	configFile.Add("audience socket path", c.NewStringOption("/var/run/conductor.sock"))
-	configFile.Add("conductor state path", c.NewStringOption("/var/spool/orchestra"))
-	configFile.Add("player file path", c.NewStringOption("/etc/conductor/players"))
+	configFile.Add("x509 certificate", configureit.NewStringOption("/etc/orchestra/conductor_crt.pem"))
+	configFile.Add("x509 private key", configureit.NewStringOption("/etc/orchestra/conductor_key.pem"))
+	configFile.Add("ca certificates", configureit.NewPathListOption(nil))
+	configFile.Add("bind address", configureit.NewStringOption(""))
+	configFile.Add("server name", configureit.NewStringOption(""))
+	configFile.Add("audience socket path", configureit.NewStringOption("/var/run/conductor.sock"))
+	configFile.Add("conductor state path", configureit.NewStringOption("/var/spool/orchestra"))
+	configFile.Add("player file path", configureit.NewStringOption("/etc/orchestra/players"))
 }
 
 func GetStringOpt(key string) string {
@@ -25,7 +26,7 @@ func GetStringOpt(key string) string {
 	if cnode == nil {
 		o.Assert("tried to get a configuration option that doesn't exist.")
 	}
-	sopt, ok := cnode.(*c.StringOption)
+	sopt, ok := cnode.(*configureit.StringOption)
 	if !ok {
 		o.Assert("tried to get a non-string configuration option with GetStringOpt")
 	}
