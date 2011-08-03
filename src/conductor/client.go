@@ -146,9 +146,19 @@ func handleIdentify(client *ClientInfo, message interface{}) {
 	if ok {
 		o.Debug("Connection is TLS.")
 		o.Debug("Checking Connection State")
-		err := tlsc.VerifyHostname(client.Player)
+		cs := tlsc.ConnectionState()
+		vo := x509.VerifyOptions{
+		Roots: CACertPool,
+		DNSName: client.Player,
+		}
+		if cs.PeerCertificates == nil {
+			o.Warn("Peer didn't provide a certificate. Aborting Connection.")
+			client.Abort()
+			return
+		}
+		chain, err := cs.PeerCertificates[0].Verify(vo)
 		if err != nil {
-			o.Warn("Client failed hostname verification: %s", err)
+			o.Warn("couldn't verify client certificate: %s", err)
 			client.Abort()
 			return
 		}

@@ -14,6 +14,10 @@ import (
 	o	"orchestra"
 )
 
+var (
+	CACertPool	*x509.CertPool = nil
+)
+
 
 func ServiceRequests() {
 	var sockConfig tls.Config
@@ -38,7 +42,7 @@ func ServiceRequests() {
 	sockConfig.Certificates = append(sockConfig.Certificates, serverCert)
 
 	// load the CA certs
-	caCertPool := x509.NewCertPool()
+	CACertPool = x509.NewCertPool()
 	caCertNames := GetCACertList()
 	if caCertNames != nil {
 		for _, filename := range caCertNames {
@@ -52,10 +56,10 @@ func ServiceRequests() {
 			o.MightFail(err, "Couldn't stat CA certificate file: %s", filename)
 			data := make([]byte, fi.Size)
 			fh.Read(data)
-			caCertPool.AppendCertsFromPEM(data)
+			CACertPool.AppendCertsFromPEM(data)
 		}
 	}
-	sockConfig.RootCAs = caCertPool
+	sockConfig.RootCAs = CACertPool
 
 	// determine the server hostname.
 	servername := GetStringOpt("server name")
