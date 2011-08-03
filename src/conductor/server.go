@@ -60,10 +60,15 @@ func ServiceRequests() {
 	// determine the server hostname.
 	sockConfig.ServerName = GetStringOpt("server name")
 	if sockConfig.ServerName == "" {
-		o.Warn("Probing for fqdn for bind address as none was provided.")
-		hostnames, err := net.LookupAddr(bindAddr.String())
-		o.MightFail(err, "Failed to get full hostname for bind address")
-		sockConfig.ServerName = hostnames[0]
+		if bindAddr != nil {
+			o.Warn("Probing for fqdn for bind address as none was provided.")
+			hostnames, err := net.LookupAddr(bindAddr.String())
+			o.MightFail(err, "Failed to get full hostname for bind address")
+			sockConfig.ServerName = hostnames[0]
+		} else {
+			o.Warn("Probing for fqdn as no server name was provided")
+			sockConfig.ServerName = o.ProbeHostname()
+		}
 	}
 
 	// ask the client to authenticate
