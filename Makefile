@@ -30,6 +30,12 @@ build:
 tgz:
 	git archive --format=tar --prefix=orchestra-$(VERSION)/ v$(VERSION) | gzip -9c > ../orchestra-$(VERSION).tgz
 
+.PHONY : head.tgz
+
+head.tgz:
+	git archive --format=tar --prefix=orchestra/ HEAD | gzip -9c > ../orchestra-HEAD.tgz
+
+
 deb:	build-root
 	fpm -s dir -t deb \
 		-n 'orchestra' \
@@ -41,12 +47,12 @@ deb:	build-root
 		--url "http://github.com/kuroneko/orchestra/" \
 		--conflicts 'orchestra-conductor, orchestra-player-go' \
 		--replaces 'orchestra-conducutor, orchestra-player-go' \
-		--config-files etc/conductor/players \
+		--config-files etc/orchestra/players \
 		-C build-root \
 		.
 
 rpm:	build-root
-	fpm -s dir -t rpm \
+	fpm -e -s dir -t rpm \
 		-n 'orchestra' \
 		-v "$(VERSION)" \
 		--iteration "$(REVISION)" \
@@ -54,7 +60,7 @@ rpm:	build-root
 		-p "../orchestra-$(VERSION)-$(REVISION).rpm" \
 		--description "Services for getting stuff run" \
 		--url "http://github.com/kuroneko/orchestra/" \
-		--config-files etc/conductor/players \
+		--config-files etc/orchestra/players \
 		-C build-root \
 		.
 
@@ -63,13 +69,13 @@ build-root:	build
 	mkdir -p build-root/usr/bin
 	mkdir -p build-root/usr/sbin
 	mkdir -p build-root/lib/orchestra/scores
-	mkdir -p build-root/etc/conductor
+	mkdir -p build-root/etc/orchestra
 	mkdir -p build-root/var/spool/orchestra
 	install -m755 bin/conductor build-root/usr/sbin
 	install -m755 bin/player build-root/usr/sbin
 	install -m755 bin/submitjob build-root/usr/bin
 	install -m755 bin/getstatus build-root/usr/bin
-	install -m644 doc/examples/players build-root/etc/conductor
+	install -m644 doc/examples/players build-root/etc/orchestra
 
 clean-build-root:
 	-rm -rf build-root
