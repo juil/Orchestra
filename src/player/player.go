@@ -364,7 +364,8 @@ func main() {
 	o.SetLogName("player")
 
 	flag.Parse()
-	
+
+	ConfigLoad()
 	LoadScores()
 	ProcessingLoop()
 }
