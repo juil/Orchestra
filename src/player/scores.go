@@ -87,7 +87,7 @@ func LoadScores() {
 	scoreDirectory := GetStringOpt("score directory")
 
 	dir, err := os.Open(scoreDirectory)
-	o.MightFail(err, "Couldn't open Score directory", err)
+	o.MightFail(err, "Couldn't open Score directory")
 	defer dir.Close()
 
 	Scores = make(map[string]*ScoreInfo)

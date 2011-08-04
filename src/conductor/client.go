@@ -145,18 +145,32 @@ func handleIdentify(client *ClientInfo, message interface{}) {
 	/* if we're TLS, verify the client's certificate given the name it used */
 	tlsc, ok := client.connection.(*tls.Conn)
 	if ok {
+		intermediates := x509.NewCertPool()
+
 		o.Debug("Connection is TLS.")
 		o.Debug("Checking Connection State")
 		cs := tlsc.ConnectionState()
 		vo := x509.VerifyOptions{
 		Roots: CACertPool,
-		Intermediates: x509.NewCertPool(),
+		Intermediates: intermediates,
 		DNSName: client.Player,
 		}
 		if cs.PeerCertificates == nil || cs.PeerCertificates[0] == nil {
 			o.Warn("Peer didn't provide a certificate. Aborting Connection.")
 			client.Abort()
 			return
+		}
+		// load any intermediate certificates from the chain
+		// into the intermediates pool so we can verify that
+		// the chain can be rebuilt.
+		//
+		// All we care is that we can reach an authorised CA.
+		//
+		//FIXME: Need CRL handling.
+		if len(cs.PeerCertificates) > 1 {
+			for i := 1; i < len(cs.PeerCertificates); i++ {
+				intermediates.AddCert(cs.PeerCertificates[i])
+			}
 		}
 		_, err := cs.PeerCertificates[0].Verify(vo)
 		if err != nil {
