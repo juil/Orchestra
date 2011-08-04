@@ -17,12 +17,9 @@ PLAYER=/usr/sbin/player
 
 test -x "${PLAYER}" || exit 0
 
+PLAYER_ARGS=""
 ENABLED=no
 
-MY_HOSTNAME=
-CONDUCTOR_ADDR=
-SCORE_DIR=
-EXTRA_ARGS=
 PIDFILE=/var/run/orchestra-player-go.pid
 
 if test -f /etc/default/orchestra-player-go; then
@@ -35,12 +32,10 @@ if [ "${ENABLED}" != "yes" ]; then
     exit 0
 fi
 
-PLAYER_ARGS_FINAL="${EXTRA_ARGS} ${MY_HOSTNAME:+-hostname=${MY_HOSTNAME}} ${CONDUCTOR_ADDR:+-master=${CONDUCTOR_ADDR}} ${SCORE_DIR:+-score-dir=${SCORE_DIR}}"
-
 case "$1" in
     start)
 	log_daemon_msg "Starting the Player"
-	if start-stop-daemon --start --quiet --oknodo --background --pidfile "${PIDFILE}" --make-pidfile --exec "${PLAYER}" -- ${PLAYER_ARGS_FINAL}; then
+	if start-stop-daemon --start --quiet --oknodo --background --pidfile "${PIDFILE}" --make-pidfile --exec "${PLAYER}" -- ${PLAYER_ARGS}; then
 	    log_end_msg 0
 	else
 	    log_end_msg 1
@@ -49,6 +44,14 @@ case "$1" in
     stop)
 	log_daemon_msg "Stopping the Player"
 	if start-stop-daemon --stop --quiet --oknodo --pidfile "${PIDFILE}" -x "${PLAYER}"; then
+	    log_end_msg 0
+	else
+	    log_end_msg 1
+	fi
+	;; 
+    reload)
+	log_daemon_msg "Asking the Player to Reload Configuration"
+	if start-stop-daemon --stop --quiet --signal HUP --pidfile "${PIDFILE}" -x "${PLAYER}"; then
 	    log_end_msg 0
 	else
 	    log_end_msg 1

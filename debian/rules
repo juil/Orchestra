@@ -11,8 +11,7 @@ build: build-stamp
 build-stamp:
 	dh_testdir
 
-	# Add here commands to compile the package.
-	gomake build
+	make build
 
 	touch build-stamp
 
@@ -21,9 +20,7 @@ clean:
 	dh_testroot
 	rm -f build-stamp
 
-	# Add here commands to clean up after the build process.
-	gomake clean
-	gomake nuke
+	make clean
 
 	dh_clean
 

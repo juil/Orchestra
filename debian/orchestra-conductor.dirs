@@ -1,4 +1,4 @@
 /usr/sbin
 /usr/bin
-/etc/conductor
+/etc/orchestra
 /var/spool/orchestra

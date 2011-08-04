@@ -1,1 +1,2 @@
-player/player		/usr/sbin
+bin/player		/usr/sbin
+samples/player.conf	/etc/conductor
