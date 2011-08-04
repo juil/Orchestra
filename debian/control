@@ -1,0 +1,30 @@
+Source: orchestra
+Maintainer: Chris Collins <chris.collins@anchor.net.au>
+Section: admin
+Priority: extra
+Build-Depends: debhelper (>= 7.0.50~), golang, golang-protobuf
+Standards-Version: 3.9.1
+
+Package: orchestra-conductor
+Architecture: i386 amd64
+Depends: ssl-cert, ${misc:Depends}
+Description: The Orchestra management server
+ Orchestra is a system for managing distributed job execution over a
+ group of servers.
+ .
+ This package contains the Conductor which manages the request queues
+ and dispatches work to the servers.  It also contains the job
+ submission tools.
+
+Package: orchestra-player-go
+Architecture: i386 amd64
+Description: The Orchestra execution agent
+ Orchestra is a system for managing distributed job execution over a
+ group of servers.
+ .
+ This package contains the go implementation of the Player which
+ retrieves the work queue from the Conductor and performs the actual
+ task execution.
+ .
+ As this particular implemention is written in Go, it only works on
+ x86 architecture systems.

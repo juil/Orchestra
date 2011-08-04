@@ -18,7 +18,6 @@ GOINSTALL_FLAGS=-dashboard=false -clean=true -u=false
 
 export GOPATH
 
-
 all: build
 
 build:	build-tree
