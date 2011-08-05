@@ -2,7 +2,7 @@ Source: orchestra
 Maintainer: Chris Collins <chris.collins@anchor.net.au>
 Section: admin
 Priority: extra
-Build-Depends: debhelper (>= 7.0.50~), golang (>= r59)
+Build-Depends: debhelper (>= 7.0.50~), golang (>= r59), golang (<< r60)
 Standards-Version: 3.9.1
 
 Package: orchestra-conductor

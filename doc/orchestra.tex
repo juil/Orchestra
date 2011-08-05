@@ -1,0 +1,239 @@
+\documentclass[a4paper]{article}
+\usepackage[T1]{fontenc}
+\usepackage{textcomp}
+\usepackage{mathptmx}
+\begin{document}
+\title{Orchestra}
+\author{Christopher Collins}
+\maketitle
+
+\section{Introduction}
+
+Orchestra is a suite for managing the reliable execution of tasks over
+a number of hosts.  It is intended to be simple and secure, leaving
+more complicated coordination and tasks to tools better suited for
+those jobs.
+
+To accomodate the needs of web interfaces and other transactional
+interface methods, the main mode of operation for clients using
+Orchestra is asynchronous with respect to the execution of the jobs.
+
+\section{Operating Principles}
+
+The fundamental ideas behing Orchestra is that a client (the
+``Audience'') requests that a job (the ``Score'') is excuted by one or
+more agents (the ``Players'').  This process is managed by the
+``Conductor'' which mediates between the Audience and the Players.
+
+A request consists of the name of the Score to execute, and a scope of
+execution which defines if the score is to be executed on a single
+player or multiple players, and which players are allowed to service
+the request.
+
+Once a request has been received by a conductor, it is broken down
+into one or more tasks which represent a single execution of the
+requests score on a single machine.  These tasks are communicated to
+the players, which perform the task, and report back outcomes, which
+are then collated by the conductor back into a response.
+
+\section{Scores}
+
+Scores are an executable object, be it a script or binary executable,
+which is optionally accompanied by a configuration file.
+
+In order for a Score to be considered for execution by a Player, it
+must have the executable bit set, and must be in the Score Directory
+({\tt /usr/lib/orchestra/scores} by default).  The filename of the
+Score itself is used to identify it in Job requests.
+
+The optional configuration file contains directives which may tell the
+Player how to behave when executing the score.
+
+Currently, the score configuration file allows you to set which
+communication interface to use when exchanging information with the
+Score, the initial working directory and the initial path for the
+score.
+
+Intended future features includes the ability to have the Player
+change the effective User ID prior to execution of the score.
+
+Because we allow bidirectional communication between Scores and
+Players, we need to establish a mechanism to do this.  The interface
+option controls this, and currently can be set to either ``{\tt env}''
+or ``{\tt pipe}''.
+
+The Player only loads score information at start up, or when prompted
+to by a {\tt SIGHUP}.  Adding or removing files from this directory
+will not change what the Player considers valid, or the parameters for
+executing a score, until a {\tt SIGHUP} has been issued.
+
+\subsection{env Interface}
+
+The ``{\tt env}'' interface is a one-way communication interface which
+allows the Player to communicate paramaters to the Score, but not
+vice-versa.
+
+It does this by preprending ``{\tt ORC\_}'' to the key name, and
+setting it in the environment appropriately.
+
+The ``{\tt env}'' interface connects the Score's {\tt STDIN} and {\tt
+  STDOUT} to {\tt /dev/null}.
+
+If the process exits with a exit status of 0, it is treated as a
+success.  All other outcomes are treated as failures.
+
+\subsection{pipe Interface}
+
+The ``{\tt pipe}'' interface is a two-way communication interface that
+operates in a very similar manner to the {\tt env} interface.
+
+Rather than connecting {\tt STDOUT} to {\tt /dev/null}, it's connected
+to a pipe which it listens on for lines of the format ``{\tt
+  <key>=<value>}''.  When it receives such a line, it is set into the
+Response set, replacing any existing values for {\tt <key>}.
+
+Just as with {\tt env}, if the process exits with a exit status of 0,
+it is treated as a success.  All other outcomes are treated as
+failures.
+
+\section{Audience Requests}
+
+At present, there are only two operations available to the audience:
+
+\begin{itemize}
+\item Submit Job
+\item Query Status of Job
+\end{itemize}
+
+\subsection{Submit Job}
+
+The Submit Job operation allows an audience member to submit a request
+for a score to be executed.
+
+The request contains the Score's name, a scope (``One of'' or ``All
+of''), the valid players list, and a series of key/value parameters to
+be passed to the score.
+
+The Conductor responds to this by either rejecting the request with an
+error, or by returning the ID for this request.
+
+Once accepted, the job is then completed as per the considerations
+listed under ``Job Execution''.
+
+\subsection{Query Status of Job}
+
+The Query Status of Job operation allows an audience member to get the
+status of a previous job sumission.
+
+The request contains the ID for the job to check.
+
+The Conductor responds to this by either rejecting the request with an
+error, or by returning an aggregate status for the Job, and detailed
+individual response data.
+
+The Aggregate status is either a Success, Partial Success or Failure
+status.
+
+With a ``One Of'' job, the aggregate status is simply the outcome from
+the execution attempt.
+
+With an ``All Of'' job, the aggregate status only indicates success or
+failure if the result is unanimous.  Partial Success is returned for
+any mixed outcome jobs.
+
+\section{Job Execution}
+
+When a Job is accepted, it is refactored as a series of single machine
+tasks which are then appened to a FIFO queue.
+
+Players, when idle, send requests for tasks to the Conductor, which
+then drains the first task from the queue which the Player can
+service, and sends the data to that Player, committing the Task to
+that specific player if it has ``One of'' scope.
+
+The Player then attempts to execute a score according to the details
+in the task.  This returns a result upon completion or error, and if
+successful, may also contain a key/value pair set response.  This is
+then reported back to the Conductor.
+
+Score results are either Hard outcomes (such as Success, Failure,
+Internal Error, Host Error During Execution) or Soft outcomes (Error
+starting score, Score unknown).  When a soft failure outcome is
+reported back to the Conductor for a ``One Of'' job, the conductor
+records the result, removes the player from the valid destinations
+list, and reschedules the task for execution at the head of the queue.
+
+In the interest of security, all network communication performed
+between the Conductor and Player is encrypted using TLS.
+
+\section{The Conductor}
+
+The Conductor is the single most imporant process in an Orchestra
+deployment.  It manages the work queue, and services requests from the
+Audience.
+
+Access to the Conductor by Players is controlled by a combination of
+the player list, a simple text file which lists the full hostname of
+all authorised players, and verification of the Player's TLS
+certificate.
+
+\subsection{Audience Interface}
+
+The Conductor listens for audience requests on a Unix Domain Socket.
+The path can be configured via the {\tt conductor.conf} configuration
+file, but defaults to {\tt /var/run/audience.sock}.
+
+The audience socket accepts a connection from any local user, and
+expects the client to send a single JSON encoded object.  It will then
+either send back a JSON encoded response or close the socket
+immediately if it couldn't understand the request.  
+
+It is expected that the service time for such requests is fast enough
+that it will not interfere with web applications polling for job
+execution status.
+
+Further documentation about this interface can be found in {\tt
+  doc/audience\_api.txt}.
+
+\subsection{Status Interface}
+
+The Condcutor implements a very basic human readable status interface
+accessible via HTTP on port 2259.  This interface tells you how many
+tasks are currently pending dispatch, and which hosts are currently
+idle, pending Tasks.
+
+\subsection{Player Interface}
+
+The Player interface is a TCP TLS listener on port 2258 which
+implements the Orchestra Player/Conductor protocol.
+
+The Protocol is a binary protocol that uses a well defined 3 byte
+header combined with message bodies encoded using the Google Protocol
+Buffers toolkit.
+
+The protocol was constructed this way in order to make it easy to
+implement a new Player in another language.  This was to allow for the
+implementation of Orchestra Players on systems that do not have a Go
+compiler.
+
+\section{Security Considerations}
+
+To ensure security, the Players and Conductor mutually authenticate
+each other using X.509 certificates - the players verify that the
+conductor's name matches it's certificate, and that it has a trust
+chain to a trusted Certificate Authority, and the conductor verifies
+that each connecting player's certificate matches who it claims to be
+and that the certificate has a trust chain back to it's trusted
+Certificate Authorities.  This allows both parties to be assured that
+they're communicating with the correct entity.
+
+As the whole concept of Orchestra is to allow the remote execution of
+work, it was an intentional design decision to restrict execution to
+existing scripts or executables on the system which have been
+explicitly configured to be invocable.  The distribution or
+installation of these materials is left for either manual deployment,
+or for other automated management systems to handle (such as Chef, or
+Puppet).
+
+\end{document}
+

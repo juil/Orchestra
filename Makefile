@@ -42,7 +42,10 @@ deps:	distclean build-tree
 	mkdir -p build-tree/src/github.com/kuroneko && cd build-tree/src/github.com/kuroneko && git clone http://github.com/kuroneko/configureit.git && cd configureit && git checkout v0.1
 	mkdir -p build-tree/src/goprotobuf.googlecode.com && cd build-tree/src/goprotobuf.googlecode.com && hg clone -r release.r59 http://goprotobuf.googlecode.com/hg
 
-archive.release:
+archive.deps:	deps
+	tar czf ../orchestra-deps-$(VERSION).tgz --transform 's!^!orchestra-$(VERSION)/!' --exclude .git --exclude .hg build-tree/src 
+
+archive.release:	archive.deps
 	git archive --format=tar --prefix=orchestra-$(VERSION)/ v$(VERSION) | gzip -9c > ../orchestra-$(VERSION).tgz
 
 .PHONY : head.tgz
