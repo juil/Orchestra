@@ -19,7 +19,7 @@ const (
 	InitialReconnectDelay		= 5e9
 	MaximumReconnectDelay		= 300e9
 	ReconnectDelayScale		= 2
-	KeepaliveDelay 			= 30e9
+	KeepaliveDelay 			= 200e9
 	RetryDelay			= 5e9
 )
 

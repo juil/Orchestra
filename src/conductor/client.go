@@ -14,8 +14,7 @@ import (
 )
 
 const (
-//	KeepaliveDelay =	300e9 // once every 5 minutes.
-	KeepaliveDelay =	30e9 // once every 30 seconds for debug
+	KeepaliveDelay =	200e9 // once every 200 seconds.
 	RetryDelay     =  	10e9 // retry every 10 seconds.  Must be smaller than the keepalive to avoid channel race.
 	OutputQueueDepth =	10 // This needs to be large enough that we don't deadlock on ourself.
 )
