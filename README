@@ -98,3 +98,5 @@ Known Issues
  * Some of the more advanced score scheduling ideas that we've had
    remain unimplemented, resulting in Orchestra looking a lot blander
    than it really is meant to be.
+
+ * There is no support for CRLs yet.
