@@ -16,7 +16,7 @@ ignored.
 
 To use this interface, the score's .conf file should contain:
 ----
-interface pipe
+interface=pipe
 ----
 
 

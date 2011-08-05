@@ -1,15 +1,14 @@
 Audience API:
 
-So:  Our Audience needs a way to do shit.
+So:  Our Audience needs a way to do stuff.
 
-JSON is the way!  really!.
+All key names (quoted below) are case sensitive.
 
-Unixsocket: 
-  Connect to Mr Socket.
-  Feed him JSON.
-  Get JSON back.
-  Close.
-
+Overview:
+  Connect to the Unix Socket.
+  Send JSON.
+  Read JSON response back.
+  Close socket.
 
 QUEUE JOB:
 
